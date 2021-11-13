@@ -16,19 +16,18 @@ public class Tile
   {
     NW, NE, W, E, SW, SE, N, S
   }
-
+  // Geographic tile type
   public enum TileType
   {
     FOREST, GRASSLAND, SEA, MOUNTAIN
   }
-
+  // Resource types
   public enum Resource
   {
     WHEAT, WOOD, STONE, GEMS, METAL
   }
 
   public static int max_neighbors = 6;
-
   private TileType type;
   private Coordinate coord;
   private Dictionary<Resource, Integer> resources;
@@ -41,7 +40,7 @@ public class Tile
     coord = c;
     neighbors = new Hashtable<Direction, Tile>();
     resources = new Hashtable<Resource, Integer>();
-    instantiate_resources(resources);
+    instantiate_resources();
   }
 
   public Tile(TileType type, int x, int y)
@@ -50,7 +49,7 @@ public class Tile
     coord = new Coordinate(x, y);
     neighbors = new Hashtable<Direction, Tile>();
     resources = new Hashtable<Resource, Integer>();
-    instantiate_resources(resources);
+    instantiate_resources();
   }
 
   public Boolean setNeighbor(Direction d, Tile t)
@@ -76,28 +75,36 @@ public class Tile
   }
 
   // Instantiate the presence of resources in the tile
-  private void instantiate_resources(Dictionary<Resource, Integer> res)
+  private void instantiate_resources()
   {
     Random rand = new Random();
     switch (type)
     {
       case FOREST:
-        res.put(Resource.WOOD, rand.nextInt(900));
-        res.put(Resource.STONE, rand.nextInt(90));
-        res.put(Resource.WHEAT, rand.nextInt(10));
+        resources.put(Resource.WOOD, rand.nextInt(900));
+        resources.put(Resource.STONE, rand.nextInt(90));
+        resources.put(Resource.WHEAT, rand.nextInt(10));
         break;
       case GRASSLAND:
-        res.put(Resource.WHEAT, rand.nextInt(900));
-        res.put(Resource.STONE, rand.nextInt(90));
-        res.put(Resource.WOOD, rand.nextInt(10));
+        resources.put(Resource.WHEAT, rand.nextInt(900));
+        resources.put(Resource.STONE, rand.nextInt(90));
+        resources.put(Resource.WOOD, rand.nextInt(10));
         break;
       case MOUNTAIN:
-        res.put(Resource.STONE, rand.nextInt(900));
-        res.put(Resource.METAL, rand.nextInt(90));
-        res.put(Resource.GEMS, rand.nextInt(10));
+        resources.put(Resource.STONE, rand.nextInt(900));
+        resources.put(Resource.METAL, rand.nextInt(90));
+        resources.put(Resource.GEMS, rand.nextInt(10));
         break;
       default:
         break;
     }
+  }
+
+  public void update()
+  {
+    // Receive orders
+    // Gather resources
+    // Modify population based on resource
+    // 
   }
 }

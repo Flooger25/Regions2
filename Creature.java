@@ -1,5 +1,8 @@
 import java.util.*;
 
+// Combinations
+// Race + Occupation
+
 public class Creature
 {
   public enum Race
@@ -8,7 +11,7 @@ public class Creature
   }
   public enum Occupation
   {
-    PEASANT, ARMORER, LUMBERJACK, MERCHANT
+    NOBLE, PEASANT, ARMORER, LUMBERJACK, MERCHANT, MINER
   }
 
   private static final Dictionary<Race, Integer> life_expectancy =
@@ -62,6 +65,16 @@ public class Creature
         break;
     }
     return occ;
+  }
+
+  public Race getRace()
+  {
+    return race;
+  }
+
+  public Occupation getOccupation()
+  {
+    return occupation;
   }
 
   public Double update(double tax_rate)
