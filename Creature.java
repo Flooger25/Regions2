@@ -42,6 +42,16 @@ public class Creature
     this.occupation = generate_occupation();
   }
 
+  public Creature(Race r, Occupation o)
+  {
+    this.age = 0;
+    this.race = r;
+    this.wealth = 0;
+    this.income = 0;
+    this.cost_of_living = 0;
+    this.occupation = o;
+  }
+
   private Occupation generate_occupation()
   {
     Occupation occ;
@@ -65,6 +75,17 @@ public class Creature
         break;
     }
     return occ;
+  }
+
+  public Boolean equals(Creature c)
+  {
+    return (c.getRace() == race) &&
+          (c.getOccupation() == occupation);
+  }
+
+  public String toString()
+  {
+    return race.name() + " " + occupation.name();
   }
 
   public Race getRace()

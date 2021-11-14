@@ -50,27 +50,46 @@ public class Population
     for (Map.Entry<Creature, Integer> entry : creatures.entrySet())
     {
       c = entry.getKey();
-      System.out.println(c.getRace().name() + " " + c.getOccupation().name() + " " + entry.getValue());
+      System.out.println(c.toString() + " " + entry.getValue());
     }
+    System.out.println("");
+  }
+  // Return a creature which is considered 'equal' to the queried
+  private Creature fetchCreature(Creature query)
+  {
+    Creature c;
+    for (Map.Entry<Creature, Integer> entry : creatures.entrySet())
+    {
+      if (entry != null)
+      {
+        c = entry.getKey();
+        if (c.equals(query))
+        {
+          return c;
+        }
+      }
+    }
+    return null;
   }
 
   // Remove 'n' number of creatures
   public int pullCreature(Creature c, int n)
   {
     int num_available;
-    if (creatures.get(c) != null)
+    Creature actual = fetchCreature(c);
+    if (actual != null)
     {
-      num_available = creatures.get(c);
+      num_available = creatures.get(actual);
       // Remove n creatures since we have greater than n available 
       if (num_available > n)
       {
-        creatures.put(c, num_available - n);
+        creatures.put(actual, num_available - n);
         return n;
       }
       // Otherwise return whatever we have left and remove creature key
       else
       {
-        creatures.remove(c);
+        creatures.remove(actual);
         return num_available;
       }
     }
@@ -79,15 +98,16 @@ public class Population
   // Add 'n' number of creatures
   public void pushCreature(Creature c, int n)
   {
+    Creature actual = fetchCreature(c);
     // If creature doesn't exist, just add n
-    if (creatures.get(c) == null)
+    if (actual == null)
     {
       creatures.put(c, n);
     }
     // Otherwise overwrite the table with current value + n
     else
     {
-      creatures.put(c, creatures.get(c) + n);
+      creatures.put(actual, creatures.get(actual) + n);
     }
   }
   // Split current creatures 'old' into 'n' 'new' creatures
@@ -95,22 +115,53 @@ public class Population
   {
     // Get current number of old creature entries
     int number_old;
-    if (creatures.get(old_c) != null)
+    Creature old_actual = fetchCreature(old_c);
+    Creature new_actual = fetchCreature(new_c);
+    // Verify 'n' is half-valid
+    if (n < 1)
     {
-      number_old = creatures.get(old_c);
+      System.out.println("ERROR: Attempted to split creatures of non-positive value");
+      return false;
+    }
+    // Verify we don't split some race into another
+    if (old_c.getRace() != new_c.getRace())
+    {
+      System.out.println("ERROR: Attempted to split creatures of non-compatible races");
+      return false;
+    }
+    // Verify the old creature actually exists
+    if (old_actual != null)
+    {
+      number_old = creatures.get(old_actual);
       if (number_old > n)
       {
         // Add 'n' new creatures to hashtable
-        creatures.put(new_c, n);
-        // Add 'number_old' - 'n' old creatures to hashtable
-        creatures.put(old_c, number_old - n);
+        // If the new creature already exists, just add to it
+        if (new_actual != null)
+        {
+          creatures.put(new_actual, creatures.get(new_actual) + n);
+        }
+        // Otherwise simply add the new entry
+        else
+        {
+          creatures.put(new_c, n);
+        }
+        // Set 'number_old' - 'n' old creatures to hashtable
+        creatures.put(old_actual, number_old - n);
       }
       else
       {
-        // Add 'number_old' new creatures to hashtable
-        creatures.put(new_c, number_old);
+        if (new_actual != null)
+        {
+          creatures.put(new_actual, creatures.get(new_actual) + number_old);
+        }
+        else
+        {
+          // Add 'number_old' new creatures to hashtable
+          creatures.put(new_c, number_old);
+        }
         // Destroy old creature entry
-        creatures.remove(old_c);
+        creatures.remove(old_actual);
       }
       return true;
     }
@@ -122,19 +173,34 @@ public class Population
   {
     int num_prime;
     int num_second;
+    Creature primary_actual = fetchCreature(primary);
+    Creature secondary_actual = fetchCreature(secondary);
+    // Verify 'n' is half-valid
+    if (n < 1)
+    {
+      System.out.println("ERROR: Attempted to combines creatures of non-positive value");
+      return false;
+    }
     if (primary.getRace() != secondary.getRace())
     {
       System.out.println("ERROR: Attempted to combine creatures of non-compatible races");
       return false;
     }
-    if (creatures.get(primary) != null && creatures.get(secondary) != null)
+    if (primary_actual != null && secondary_actual != null)
     {
-      num_prime = creatures.get(primary);
-      num_second = creatures.get(secondary);
-      // Remove secondary from hashtable
-      creatures.remove(secondary);
-      // Add secondary + primary into primary creature
-      creatures.put(primary, num_prime + num_second);
+      num_prime = creatures.get(primary_actual);
+      num_second = creatures.get(secondary_actual);
+      // We don't have enough secondary entries!
+      if (n > num_second)
+      {
+        creatures.remove(secondary_actual);
+        creatures.put(primary_actual, num_prime + num_second);
+      }
+      else
+      {
+        creatures.put(secondary_actual, num_second - n);
+        creatures.put(primary_actual, num_prime + n);
+      }
       return true;
     }
     System.out.println("ERROR: One or more creatures do not exist. Cannot combine");
@@ -163,20 +229,36 @@ public class Population
     pop.printPopulation();
     if (pop.getPopulation() != 1050) return;
     // Test pull
-    pop.pullCreature(new Creature(Creature.Race.ELF), 20);
+    Creature pull_c_1 = new Creature(Creature.Race.ELF, Creature.Occupation.LUMBERJACK);
+    pop.pullCreature(pull_c_1, 20);
     pop.printPopulation();
     if (pop.getPopulation() != 1030) return;
-
-    // 4-sided
-    // Dice a = new Dice(3, DIE_4);
-    // for (int i = 0; i < test_iterations; i++)
-    // {
-    //   value = a.rollDice();
-    //   if (value < 3 || value > DIE_4 * 3)
-    //   {
-    //     pass = false;
-    //     break;
-    //   }
-    // }
+    // Test push
+    Creature push_c_1 = new Creature(Creature.Race.HUMAN, Creature.Occupation.PEASANT);
+    pop.pushCreature(push_c_1, 20);
+    pop.printPopulation();
+    if (pop.getPopulation() != 1050) return;
+    pop.pushCreature(push_c_1, 30);
+    pop.printPopulation();
+    if (pop.getPopulation() != 1080) return;
+    // Test split
+    Creature split_c_1 = new Creature(Creature.Race.HUMAN, Creature.Occupation.LUMBERJACK);
+    Creature split_c_2 = new Creature(Creature.Race.HUMAN, Creature.Occupation.PEASANT);
+    pop.splitCreature(split_c_1, split_c_2, 100);
+    pop.printPopulation();
+    if (pop.getPopulation() != 1080) return;
+    Creature split_c_3 = new Creature(Creature.Race.DWARF, Creature.Occupation.MINER);
+    pop.splitCreature(split_c_1, split_c_3, 50);
+    Creature split_c_4 = new Creature(Creature.Race.ELF, Creature.Occupation.MERCHANT);
+    pop.splitCreature(pull_c_1, split_c_4, 0);
+    pop.splitCreature(pull_c_1, split_c_4, 140);
+    pop.printPopulation();
+    // Test combining
+    Creature combine_c_1 = new Creature(Creature.Race.HUMAN, Creature.Occupation.LUMBERJACK);
+    Creature combine_c_2 = new Creature(Creature.Race.HUMAN, Creature.Occupation.PEASANT);
+    Creature combine_c_3 = new Creature(Creature.Race.HUMAN, Creature.Occupation.MINER);
+    pop.combineCreatures(combine_c_1, combine_c_2, 100);
+    pop.printPopulation();
+    if (pop.getPopulation() != 1080) return;
   }
 }
