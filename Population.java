@@ -8,6 +8,10 @@ public class Population
   //  a bunch of instances
   private Map<Creature, Integer> creatures;
 
+  public Population()
+  {
+    this.creatures = new HashMap<Creature, Integer>();
+  }
   // Fixed number of creatures
   public Population(HashMap<Creature.Race, Integer> profile)
   {
@@ -25,7 +29,7 @@ public class Population
   //   race0 - n0 of population
   //   race1 - n1 of population
   //   race2 - n2 of population ...etc
-  private void populate_profile(HashMap<Creature.Race, Integer> map)
+  public void populate_profile(HashMap<Creature.Race, Integer> map)
   {
     // First layer focuses on race
     for (Map.Entry<Creature.Race, Integer> entry : map.entrySet())
@@ -71,9 +75,8 @@ public class Population
     }
     return null;
   }
-
-  // Remove 'n' number of creatures
-  public int pullCreature(Creature c, int n)
+  // Remove 'n' number of creatures and return them
+  public Creature pullCreature(Creature c, int n)
   {
     int num_available;
     Creature actual = fetchCreature(c);
@@ -84,16 +87,15 @@ public class Population
       if (num_available > n)
       {
         creatures.put(actual, num_available - n);
-        return n;
       }
       // Otherwise return whatever we have left and remove creature key
       else
       {
         creatures.remove(actual);
-        return num_available;
       }
+      return actual;
     }
-    return 0;
+    return null;
   }
   // Add 'n' number of creatures
   public void pushCreature(Creature c, int n)
@@ -206,47 +208,62 @@ public class Population
     System.out.println("ERROR: One or more creatures do not exist. Cannot combine");
     return false;
   }
+  // Merge population 'p' into the current population
+  public Boolean absorbPopulation(Population p)
+  {
+    return true;
+  }
 
   public Boolean modifyOccupation(Creature c, Creature.Occupation o, int n)
   {
-    int available_creatures;
-    if (creatures.get(c) != null)
-    {
-      available_creatures = creatures.get(c);
-      return true;
-    }
-    System.out.println("ERROR: One or more creatures do not exist. Cannot combine");
-    return false;
+    // Creature new_occupation = new Creature(c.getRace(), o);
+    return splitCreature(c, new Creature(c.getRace(), o), n);
   }
+  // Increase or decrease population based on creature-related items
+  //  and tile information
+  public void advanceTime()
+  {
+    Creature c;
+    int c_quantity;
+    for (Map.Entry<Creature, Integer> entry : creatures.entrySet())
+    {
+      c = entry.getKey();
+      c_quantity = entry.getValue();
+      // creature.put(c, )
+      c.update(0.0);
+    }
+  }
+
   // Just test stuff
   public static void main(String[] args)
   {
+    int passes = 0;
     HashMap<Creature.Race, Integer> profile = new HashMap<Creature.Race, Integer>();
     profile.put(Creature.Race.HUMAN, 1000);
     profile.put(Creature.Race.ELF, 50);
     // Basic initialization
     Population pop = new Population(profile);
     pop.printPopulation();
-    if (pop.getPopulation() != 1050) return;
+    if (pop.getPopulation() == 1050) passes++;
     // Test pull
     Creature pull_c_1 = new Creature(Creature.Race.ELF, Creature.Occupation.LUMBERJACK);
     pop.pullCreature(pull_c_1, 20);
     pop.printPopulation();
-    if (pop.getPopulation() != 1030) return;
+    if (pop.getPopulation() == 1030) passes++;
     // Test push
     Creature push_c_1 = new Creature(Creature.Race.HUMAN, Creature.Occupation.PEASANT);
     pop.pushCreature(push_c_1, 20);
     pop.printPopulation();
-    if (pop.getPopulation() != 1050) return;
+    if (pop.getPopulation() == 1050) passes++;
     pop.pushCreature(push_c_1, 30);
     pop.printPopulation();
-    if (pop.getPopulation() != 1080) return;
+    if (pop.getPopulation() == 1080) passes++;
     // Test split
     Creature split_c_1 = new Creature(Creature.Race.HUMAN, Creature.Occupation.LUMBERJACK);
     Creature split_c_2 = new Creature(Creature.Race.HUMAN, Creature.Occupation.PEASANT);
     pop.splitCreature(split_c_1, split_c_2, 100);
     pop.printPopulation();
-    if (pop.getPopulation() != 1080) return;
+    if (pop.getPopulation() == 1080) passes++;
     Creature split_c_3 = new Creature(Creature.Race.DWARF, Creature.Occupation.MINER);
     pop.splitCreature(split_c_1, split_c_3, 50);
     Creature split_c_4 = new Creature(Creature.Race.ELF, Creature.Occupation.MERCHANT);
@@ -259,6 +276,12 @@ public class Population
     Creature combine_c_3 = new Creature(Creature.Race.HUMAN, Creature.Occupation.MINER);
     pop.combineCreatures(combine_c_1, combine_c_2, 100);
     pop.printPopulation();
-    if (pop.getPopulation() != 1080) return;
+    if (pop.getPopulation() == 1080) passes++;
+    // Test occupation modification
+    pop.modifyOccupation(combine_c_1, Creature.Occupation.MINER, 100);
+    pop.printPopulation();
+    if (pop.getPopulation() == 1080) passes++;
+
+    System.out.println("TESTS PASSED : [" + passes + "/7]");
   }
 }

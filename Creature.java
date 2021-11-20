@@ -14,7 +14,7 @@ public class Creature
     NOBLE, PEASANT, ARMORER, LUMBERJACK, MERCHANT, MINER
   }
 
-  private static final Dictionary<Race, Integer> life_expectancy =
+  private static final Map<Race, Integer> life_expectancy =
     new Hashtable<Race, Integer>()
     {{
       put(Race.HUMAN, 80);

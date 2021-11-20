@@ -32,9 +32,14 @@ public class Coordinate {
     return Math.hypot( Math.abs(y - c.y), Math.abs(x - c.x) );
   }
 
+  public String toString()
+  {
+    return "("+ x + "," + y + ")";
+  }
+
   public void print()
   {
-    System.out.println("("+ x + "," + y + ")");
+    System.out.println(toString());
   }
 
   public static void main(String[] args)
