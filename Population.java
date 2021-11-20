@@ -58,6 +58,11 @@ public class Population
     }
     System.out.println("");
   }
+
+  public Map<Creature, Integer> getCreatureList()
+  {
+    return creatures;
+  }
   // Return a creature which is considered 'equal' to the queried
   private Creature fetchCreature(Creature query)
   {
@@ -76,10 +81,11 @@ public class Population
     return null;
   }
   // Remove 'n' number of creatures and return them
-  public Creature pullCreature(Creature c, int n)
+  public Map<Creature, Integer> pullCreature(Creature c, int n)
   {
     int num_available;
     Creature actual = fetchCreature(c);
+    Map<Creature, Integer> valid_creatures = new HashMap<Creature, Integer>();
     if (actual != null)
     {
       num_available = creatures.get(actual);
@@ -87,13 +93,15 @@ public class Population
       if (num_available > n)
       {
         creatures.put(actual, num_available - n);
+        valid_creatures.put(actual, n);
       }
       // Otherwise return whatever we have left and remove creature key
       else
       {
         creatures.remove(actual);
+        valid_creatures.put(actual, num_available);
       }
-      return actual;
+      return valid_creatures;
     }
     return null;
   }
@@ -112,7 +120,7 @@ public class Population
       creatures.put(actual, creatures.get(actual) + n);
     }
   }
-  // Split current creatures 'old' into 'n' 'new' creatures
+  // Split current creatures 'old' into 'n' 'new' creatures in the same population
   public Boolean splitCreature(Creature old_c, Creature new_c, int n)
   {
     // Get current number of old creature entries
@@ -208,12 +216,57 @@ public class Population
     System.out.println("ERROR: One or more creatures do not exist. Cannot combine");
     return false;
   }
+  // Split population and return new one
+  // First remove creatures from current population and then add to new one
+  public Population splitPopulation(Map<Creature, Integer> pull_creatures)
+  {
+    Population new_pop = new Population();
+    Map<Creature, Integer> creature_entry = new HashMap<Creature, Integer>();
+    if (pull_creatures == null)
+    {
+      System.out.println("ERROR: Invalid creature list. Cannot split population!");
+      return null;
+    }
+    else
+    {
+      for (Map.Entry<Creature, Integer> entry : pull_creatures.entrySet())
+      {
+        // Remove the creatures from the active population
+        // NOTE - Rather than shoving the entry data into the pushCreature call,
+        //  we get a key value pair in case not all  of the 'n' number of
+        //  creatures exist. Cannot assume we can pull all 'n' creatures 'c'
+        creature_entry = pullCreature(entry.getKey(), entry.getValue());
+        // Add the entry to the new population
+        // TODO - Make this less dumb
+        for (Map.Entry<Creature, Integer> sub_entry : creature_entry.entrySet())
+        {
+          new_pop.pushCreature(sub_entry.getKey(), sub_entry.getValue());
+          break;
+        }
+      }
+    }
+    return new_pop;
+  }
   // Merge population 'p' into the current population
+  // NOTE - This method DOES NOT remove p's information
   public Boolean absorbPopulation(Population p)
   {
+    Map<Creature, Integer> new_creatures = p.getCreatureList();
+    if (new_creatures == null)
+    {
+      System.out.println("ERROR: Invalid population 'p'. Cannot absorb!");
+      return false;
+    }
+    else
+    {
+      for (Map.Entry<Creature, Integer> entry : new_creatures.entrySet())
+      {
+        pushCreature(entry.getKey(), entry.getValue());
+      }
+    }
     return true;
   }
-
+  // Change 'n' number of 'c' creatures' occupations to 'o'
   public Boolean modifyOccupation(Creature c, Creature.Occupation o, int n)
   {
     // Creature new_occupation = new Creature(c.getRace(), o);
@@ -281,7 +334,22 @@ public class Population
     pop.modifyOccupation(combine_c_1, Creature.Occupation.MINER, 100);
     pop.printPopulation();
     if (pop.getPopulation() == 1080) passes++;
+    // Test splitting
+    Map<Creature, Integer> splitMap = new HashMap<Creature, Integer>();
+    splitMap.put(combine_c_1, 450);
+    splitMap.put(split_c_4, 15);
+    Population pop2 = pop.splitPopulation(splitMap);
+    if (pop.getPopulation() == 615) passes++;
+    if (pop2.getPopulation() == 465) passes++;
+    pop.printPopulation();
+    pop2.printPopulation();
+    // Test absorption
+    if (pop.absorbPopulation(pop2)) passes++;
+    if (pop.getPopulation() == 1080) passes++;
+    if (pop2.getPopulation() == 465) passes++;
+    pop.printPopulation();
+    pop2.printPopulation();
 
-    System.out.println("TESTS PASSED : [" + passes + "/7]");
+    System.out.println("TESTS PASSED : [" + passes + "/12]");
   }
 }

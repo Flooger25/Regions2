@@ -139,7 +139,7 @@ public class TileManager
     return false;
   }
 
-  private void processMoveOrder(Order o)
+  private Boolean processMoveOrder(Order o)
   {
     Order.Item item = o.getItem();
     Tile origin_t = getTile(o.getOrderOrigin());
@@ -151,12 +151,29 @@ public class TileManager
         int quantity = o.getQuantity();
         int extracted_resources = origin_t.extractResource(moved_r, quantity);
         dest_t.addResource(moved_r, extracted_resources);
-        break;
+        return true;
       case POPULATION:
-        // Population moved_p = o.getPopulation();
-        // Population origin_p = origin.getPopulation();
-        // First need to remove moved_p from origin_p
-        // Then add moved_p into dest_p
+        // Population profile of what we want to extract
+        Population moved_p = o.getPopulation();
+        if (moved_p != null)
+        {
+          // Extract population from origin tile
+          Population extracted_population = origin_t.getPopulation().splitPopulation(moved_p.getCreatureList());
+          if (extracted_population != null)
+          {
+            // Absorb the extracted population into the destination tile
+            dest_t.getPopulation().absorbPopulation(extracted_population);
+            return true;
+          }
+          else
+          {
+            System.out.println("ERROR : Failed to extract population! Cannot move...");
+          }
+        }
+        else
+        {
+          System.out.println("ERROR : Invalid population order! Cannot move...");
+        }
         break;
       // Moving GP is the equivalent of investing in a particular Tile
       case GP:
@@ -164,9 +181,10 @@ public class TileManager
       default:
         break;
     }
+    return false;
   }
   // Process a given Order starting with its action
-  private void processOrderByAction(Order o)
+  private Boolean processOrderByAction(Order o)
   {
     Order.Actions action = o.getAction();
     Order.Item item = o.getItem();
@@ -179,8 +197,16 @@ public class TileManager
         {
           if (o.getTarget() != Order.Target.STATE)
           {
-            processMoveOrder(o);
+            return processMoveOrder(o);
           }
+          else if (o.getItem() == Order.Item.GP)
+          {
+            // processGPAssistance(o);
+          }
+        }
+        else
+        {
+          System.out.println("WARNING : Cannot move to " + o.getOrderTarget().toString() + ". Not owned");
         }
         break;
       case ATTACK:
@@ -192,11 +218,13 @@ public class TileManager
       default:
         break;
     }
+    return false;
   }
   // Process orders filtered by priority
   private LinkedList<Order> processOrderByPriority(int priority, LinkedList<Order> input_cmds)
   {
     LinkedList<Order> output_cmds = new LinkedList<Order>();
+    Boolean process_order_status = false;
     Order order;
     while (input_cmds.peekFirst() != null)
     {
@@ -207,7 +235,7 @@ public class TileManager
         output_cmds.addLast(order);
         continue;
       }
-      processOrderByAction(order);
+      process_order_status = processOrderByAction(order);
     }
     return output_cmds;
   }
@@ -252,7 +280,7 @@ public class TileManager
 
   public void update()
   {
-    // Receive all Orders from States
+    // 1 - Receive all Orders from States
     LinkedList<Order> super_orders = new LinkedList<Order>();
     for (Map.Entry<Coordinate, State> entry : states.entrySet())
     {
@@ -263,18 +291,18 @@ public class TileManager
         super_orders.addLast(Orders.pop());
       }
     }
-    // Process them in priority order. 1, 2, etc.
+    // 2 - Process commands in priority order. 1, 2, etc.
     for (int i = 1; i <= 5; i++)
     {
       super_orders = processOrderByPriority(i, super_orders);
     }
-    // Process them in priority order
-    // Modify population based on resource
-    // Gather resources
-    // for (Map.Entry<Coordinate, Tile> entry : map.entrySet())
-    // {
-    //   Orders.add(entry.getValue().receiveOrders());
-    // }
+    // 3 - Return un-processed orders to their respective origins
+
+    // 4 - Gather resources
+
+    // 5 - Modify population based on resources
+
+    // 6 - Stream important events to respective states
   }
   // Just test stuff
   public static void main(String[] args)
@@ -312,6 +340,17 @@ public class TileManager
     manager.getTile(center).printTile();
     manager.getTile(neighbor_E).printTile();
 
+    // Test MOVE POPULATION case
+    Tile east_tile = manager.getTile(neighbor_E);
+    Population p2 = east_tile.getPopulation();
+    Population move_100_humans = new Population();
+    move_100_humans.pushCreature(new Creature(Creature.Race.HUMAN, Creature.Occupation.PEASANT), 250);
+    Order move_100_human_peasants = new Order(s, 1, center, neighbor_E, move_100_humans);
+    s.addOrder(move_100_human_peasants);
+    manager.update();
+    tile.printTile();
+    east_tile.printTile();
+    // p2.pushCreature()
 
     System.out.println("TESTS PASSED : [" + passes + "/7]");
   }

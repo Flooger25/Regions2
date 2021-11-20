@@ -76,6 +76,11 @@ public class Tile
     return resources;
   }
 
+  public int getResourceQuantity(Resource r)
+  {
+    return resources.get(r);
+  }
+
   public int extractResource(Resource r, int quantity)
   {
     int num_available = resources.get(r);
