@@ -1,4 +1,5 @@
 import java.util.*;
+import java.awt.Color;
 
 public class State
 {
@@ -13,6 +14,7 @@ public class State
     ALLIANCE, NEUTRAL, WAR
   }
   public static long uid;
+  private Color color;
   public static TileManager manager;
   private LinkedList<Order> orders;
   private Map<State, Relationship> diplomacy;
@@ -20,6 +22,8 @@ public class State
   public State(long uid, TileManager manager)
   {
     this.uid = uid;
+    Random rand = new Random();
+    this.color = new Color(rand.nextInt(256),rand.nextInt(256),rand.nextInt(256));
     this.manager = manager;
     this.orders = new LinkedList<Order>();
     this.diplomacy = new Hashtable<State, Relationship>();
@@ -28,6 +32,11 @@ public class State
   public void addOrder(Order o)
   {
     orders.addLast(o);
+  }
+
+  public Color getColor()
+  {
+    return color;
   }
 
   public LinkedList<Order> transmitOrders()

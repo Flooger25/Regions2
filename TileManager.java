@@ -20,6 +20,7 @@ public class TileManager
     initialize_map();
     map_neighbors();
   }
+  // TODO - Generate a decent map
   // Just create a blank canvas
   private void initialize_map()
   {
@@ -52,27 +53,42 @@ public class TileManager
       {
         Tile tile = map.get(coordinates[i][j]);
         // North
-        if (i - 1 >= 0)
-        {
-          tile.setNeighbor(Tile.Direction.N, map.get(coordinates[i - 1][j]));
-        }
-        // South
-        if (i + 1 < width)
-        {
-          tile.setNeighbor(Tile.Direction.S, map.get(coordinates[i + 1][j]));
-        }
-        // East
-        if (j + 1 < height)
-        {
-          tile.setNeighbor(Tile.Direction.E, map.get(coordinates[i][j + 1]));
-        }
-        // West
         if (j - 1 >= 0)
         {
-          tile.setNeighbor(Tile.Direction.W, map.get(coordinates[i][j - 1]));
+          tile.setNeighbor(Tile.Direction.N, map.get(coordinates[i][j - 1]));
+        }
+        // South
+        if (j + 1 < height)
+        {
+          tile.setNeighbor(Tile.Direction.S, map.get(coordinates[i][j + 1]));
+        }
+        // East
+        if (i + 1 < width)
+        {
+          tile.setNeighbor(Tile.Direction.E, map.get(coordinates[i + 1][j]));
+        }
+        // West
+        if (i - 1 >= 0)
+        {
+          tile.setNeighbor(Tile.Direction.W, map.get(coordinates[i - 1][j]));
         }
       }
     }
+  }
+
+  public Coordinate[][] getMap()
+  {
+    return coordinates;
+  }
+
+  public Coordinate getCoordinate(int x, int y)
+  {
+    if ((x > -1) && (x < width) &&
+        (y > -1) && (y < height))
+    {
+      return coordinates[x][y];
+    }
+    return null;
   }
 
   private Boolean verifyCoordRange(Coordinate coordinate)
@@ -112,13 +128,43 @@ public class TileManager
       }
     }
   }
+  public void addState(State s, Coordinate c)
+  {
+    Random rand = new Random();
+    // Assume 'c' is null here as well
+    if (s == null)
+    {
+      s = new State(rand.nextInt(), this);
+      c = new Coordinate(rand.nextInt(width), rand.nextInt(height));
+      while (getState(c) != null)
+      {
+        c.x = rand.nextInt(width);
+        c.y = rand.nextInt(height);
+      }
+      states.put(coordinates[c.x][c.y], s);
+    }
+    else if (c != null)
+    {
+      if (getState(c) == null)
+      {
+        states.put(coordinates[c.x][c.y], s);
+      }
+      else
+      {
+        System.out.println("WARNING : Cannot add state. Invalid coordinate provided");
+      }
+    }
+    else
+    {
+      System.out.println("ERROR : Cannot add state. Invalid arguments provided");
+    }
+  }
   // Return the state who owns the given coordinate
   public State getState(Coordinate coord)
   {
     if (verifyCoordRange(coord))
     {
-      State s = states.get(coordinates[coord.x][coord.y]);
-      return s;
+      return states.get(coordinates[coord.x][coord.y]);
     }
     return null;
   }
@@ -280,6 +326,7 @@ public class TileManager
 
   public void update()
   {
+    System.out.println("-------------------------------");
     // 1 - Receive all Orders from States
     LinkedList<Order> super_orders = new LinkedList<Order>();
     for (Map.Entry<Coordinate, State> entry : states.entrySet())
@@ -296,6 +343,14 @@ public class TileManager
     {
       super_orders = processOrderByPriority(i, super_orders);
     }
+    Random rand = new Random();
+    if (rand.nextInt(10) > 5)
+    {
+      System.out.println("Adding state");
+      addState(null, null);
+    }
+
+  //   }
     // 3 - Return un-processed orders to their respective origins
 
     // 4 - Gather resources
