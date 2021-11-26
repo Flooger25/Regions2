@@ -18,11 +18,9 @@ public class Panel extends JPanel implements ActionListener
   public static final int button_height = 50;
   public static final int width = 500;
   public static final int height = 250;
+  public static final int scale = 1;
 
   public TileManager tm = new TileManager(width, height);
-
-  // public PanelListener listener; // = new PanelListener();
-
   public JFrame frame;
   public JPanel panel;
   public JButton button2;
@@ -109,7 +107,8 @@ public class Panel extends JPanel implements ActionListener
     int i = rand.nextInt(width);
     int j = rand.nextInt(height);
     // drawPixel(i, j, g, 10);
-    g.fillRect(i, j, 10, 10);
+    // The second argument is the horizontal
+    g.fillRect(i, j + button_height, 10, 10);
 
     // for (int i = 0; i < width; i++)
     // {
@@ -126,8 +125,8 @@ public class Panel extends JPanel implements ActionListener
     @Override
     public void mouseClicked(MouseEvent event)
     {
-      int x = event.getX();
-      int y = event.getY() - button_height;
+      int x = (event.getX()) / scale;
+      int y = (event.getY() - button_height) / scale;
       System.out.println("Someone just clicked at: " + x + "," + y);
       Tile tile = tm.getTile(new Coordinate(x, y));
       if (tile != null)
@@ -145,40 +144,6 @@ public class Panel extends JPanel implements ActionListener
     public void mouseReleased(MouseEvent arg0) {}
   }
 
-  // Called inside panel.repaint() I think?
-  // @Override
-  public void paintComponent(Graphics g)
-  {
-    System.out.println("inside repaint");
-    super.paintComponent(g);
-    System.out.println("inside repaint");
-    // Get high-level map
-    // Coordinate[][] map = getMap();
-    // Color color;
-    Random rand = new Random();
-    Color color = new Color(rand.nextInt(256),rand.nextInt(256),rand.nextInt(256));
-    g.setColor(color);
-    int i = rand.nextInt(256);
-    int j = rand.nextInt(256);
-    drawPixel(i, j, g, 100);
-    // Draw geography
-    // for (int i = 0; i < width; i++)
-    // {
-    //   for (int j = 0; j < height; j++)
-    //   {
-    //     color = tm.getState(tm.getCoordinate(i, j)).getColor();
-    //     // No one owns this particular coordinate
-    //     if (color == null)
-    //     {
-    //       g.setColor(Color.GREEN);
-    //     }
-    //     else {
-    //       g.setColor(color);
-    //     }
-    //     drawPixel(i, j, g, 100);
-    //   }
-    // }
-  }
   // Helper method to draw pixels
   private void drawPixel(int x, int y, Graphics g, int factor)
   {
@@ -187,49 +152,21 @@ public class Panel extends JPanel implements ActionListener
 
   public static void main(String[] args)
   {
-    // int width = (int)(500*1.0);
-    // int height = (int)(250*1.0);
-
-    // JFrame frame = new JFrame("Pulchra");
-    // Panel panel = new Panel();
-
-    // // Set up buttons
-    // frame.setSize(width, height + button_height);
-    // frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-    // frame.setVisible(true);
-    // // frame.add(panel);
-
-    // // Set up panel
-    // panel.addMouseListener(new PanelListener());
-    // frame.add(panel);
+    int max_sim_time = 10000;
 
     Panel mother_panel = new Panel();
     JPanel panel = mother_panel.buildUI();
     JFrame frame = mother_panel.getFrame();
 
-    // JFrame mainFrame = new JFrame("Field");
-    // mainFrame.setSize(width+100,height+100);
-    // mainFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-    // mainFrame.setVisible(true);
-    // Panel panel = new Panel();
-    // mainFrame.add(panel);
-
     Thread t = new Thread()
     {
       public void run()
       {
-        try {
-          long startTime = System.currentTimeMillis();
-          for (int i = 0; i < 10000; i++)
-          {
-            // mother_panel.repaint();
-            // panel.repaint();
-            // frame.repaint();
-            System.out.println("Iteration: " + i);
-            Thread.sleep(500);
-          }
-          long totaltime = System.currentTimeMillis() - startTime;
-          System.out.println("Total time: " + totaltime/1000 + "s");
+        try
+        {
+          Thread.sleep(max_sim_time);
+          System.out.println("Maximum simulation time achieved. Shutting down...");
+          Thread.sleep(2000);
         } catch (Exception e)
         {
           e.printStackTrace();
@@ -241,7 +178,6 @@ public class Panel extends JPanel implements ActionListener
     {
       t.join();
     } catch (Exception e) {}
-    // frame.setVisible(false);
     System.exit(0);
   }
 }

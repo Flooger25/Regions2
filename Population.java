@@ -54,7 +54,7 @@ public class Population
     for (Map.Entry<Creature, Integer> entry : creatures.entrySet())
     {
       c = entry.getKey();
-      System.out.println(c.toString() + " " + entry.getValue());
+      System.out.println(entry.getValue() + " " + c.toString());
     }
     System.out.println("");
   }
@@ -269,22 +269,47 @@ public class Population
   // Change 'n' number of 'c' creatures' occupations to 'o'
   public Boolean modifyOccupation(Creature c, Creature.Occupation o, int n)
   {
-    // Creature new_occupation = new Creature(c.getRace(), o);
     return splitCreature(c, new Creature(c.getRace(), o), n);
   }
   // Increase or decrease population based on creature-related items
   //  and tile information
-  public void advanceTime()
+  public int update(double tax_rate, int inf)
   {
+    Map<Creature, Integer> removed = new HashMap<Creature, Integer>();
     Creature c;
-    int c_quantity;
+    int c_n;
+    int c_new_n;
+    int tax_collected = 0;
+    // Update each individual creature profile based on tile values
     for (Map.Entry<Creature, Integer> entry : creatures.entrySet())
     {
       c = entry.getKey();
-      c_quantity = entry.getValue();
-      // creature.put(c, )
-      c.update(0.0);
+      c_n = entry.getValue();
+      // Call update on creature and receive new amount
+      c_new_n = c.update(tax_rate, c_n, inf);
+      // Track tax collected
+      tax_collected += c.getTax() * c_n;
+      // Replace old number with new
+      if (c_new_n > 0)
+      {
+        creatures.put(c, c_new_n);
+      }
+      else
+      {
+        // If the creature dies, just add their wealth to tax collected
+        // TODO - Find a better way to distribute the wealth
+        tax_collected += c.getWealth();
+        removed.put(c, 0);
+      }
     }
+    // Remove creatures queued to be removed
+    for (Map.Entry<Creature, Integer> entry : removed.entrySet())
+    {
+      creatures.remove(entry.getKey());
+    }
+    System.out.println("tax_collected = " + tax_collected);
+
+    return tax_collected;
   }
 
   // Just test stuff
@@ -349,6 +374,15 @@ public class Population
     if (pop2.getPopulation() == 465) passes++;
     pop.printPopulation();
     pop2.printPopulation();
+
+    // Test update
+    System.out.println("====TEST UPDATE====");
+    pop.printPopulation();
+    for (int i = 0; i < 50; i++)
+    {
+      pop.update(.1, i);
+      pop.printPopulation();
+    }
 
     System.out.println("TESTS PASSED : [" + passes + "/12]");
   }
