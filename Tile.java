@@ -71,16 +71,64 @@ public class Tile
     instantiate_resources(false);
   }
 
+  // Instantiate the presence of resources in the tile
+  private void instantiate_resources(Boolean provide_color)
+  {
+    Random rand = new Random();
+    switch (type)
+    {
+      case FOREST:
+        if (provide_color) color = Color.WHITE;
+        resources.put(Resource.WOOD, rand.nextInt(900));
+        resources.put(Resource.STONE, rand.nextInt(90));
+        resources.put(Resource.WHEAT, rand.nextInt(10));
+        break;
+      case GRASSLAND:
+        if (provide_color) color = Color.GREEN;
+        resources.put(Resource.WHEAT, rand.nextInt(900));
+        resources.put(Resource.STONE, rand.nextInt(90));
+        resources.put(Resource.WOOD, rand.nextInt(10));
+        break;
+      case MOUNTAIN:
+        if (provide_color) color = Color.GRAY;
+        resources.put(Resource.STONE, rand.nextInt(900));
+        resources.put(Resource.METAL, rand.nextInt(90));
+        resources.put(Resource.GEMS, rand.nextInt(10));
+        break;
+      case SEA:
+        if (provide_color) color = Color.BLUE;
+      default:
+        break;
+    }
+  }
+
   private void setTypeFromColor()
   {
     int r = color.getRed();
     int g = color.getGreen();
     int b = color.getBlue();
-    System.out.println("Eddie " + r + " " + g + " " + b);
+    // System.out.println("Eddie " + r + " " + g + " " + b);
     // if (r > g && r > b) return Color.RED;
     if (g > r && g > b) type = TileType.GRASSLAND;
     else if (b > g && b > r) type = TileType.SEA;
     else type = TileType.MOUNTAIN;
+  }
+
+  public Color getTileColor()
+  {
+    switch (type)
+    {
+      case FOREST:
+      case GRASSLAND:
+        return Color.GREEN;
+      case MOUNTAIN:
+        return Color.GRAY;
+      case SEA:
+        return Color.BLUE;
+      default:
+        break;
+    }
+    return null;
   }
 
   public String toString()
@@ -117,34 +165,37 @@ public class Tile
 
   public int extractResource(Resource r, int quantity)
   {
-    int num_available = resources.get(r);
+    int num_available;
+    // This resource doesn't exist here, so return 0
+    if (resources.get(r) == null)
+    {
+      return 0;
+    }
+    num_available = resources.get(r);
+    // We're extracting a quantity less than we have, so update the remaining
     if (quantity < num_available)
     {
       resources.put(r, num_available - quantity);
       return quantity;
     }
+    // Values are the same, so remove the resource
     else if (quantity == num_available)
     {
       resources.remove(r);
       return num_available;
     }
-    else // (quantity > num_available)
-    {
-      resources.remove(r);
-      return num_available;
-    }
+    return 0;
   }
 
   public void addResource(Resource r, int quantity)
   {
-    int num_available = resources.get(r);
-    if (num_available == 0)
+    if (resources.get(r) == null)
     {
       resources.put(r, quantity);
     }
     else
     {
-      resources.put(r, num_available + quantity);
+      resources.put(r, resources.get(r) + quantity);
     }
   }
 
@@ -184,36 +235,6 @@ public class Tile
     return resources.keys();
   }
 
-  // Instantiate the presence of resources in the tile
-  private void instantiate_resources(Boolean provide_color)
-  {
-    Random rand = new Random();
-    switch (type)
-    {
-      case FOREST:
-        if (provide_color) color = Color.WHITE;
-        resources.put(Resource.WOOD, rand.nextInt(900));
-        resources.put(Resource.STONE, rand.nextInt(90));
-        resources.put(Resource.WHEAT, rand.nextInt(10));
-        break;
-      case GRASSLAND:
-        if (provide_color) color = Color.GREEN;
-        resources.put(Resource.WHEAT, rand.nextInt(900));
-        resources.put(Resource.STONE, rand.nextInt(90));
-        resources.put(Resource.WOOD, rand.nextInt(10));
-        break;
-      case MOUNTAIN:
-        if (provide_color) color = Color.GRAY;
-        resources.put(Resource.STONE, rand.nextInt(900));
-        resources.put(Resource.METAL, rand.nextInt(90));
-        resources.put(Resource.GEMS, rand.nextInt(10));
-        break;
-      case SEA:
-        if (provide_color) color = Color.BLUE;
-      default:
-        break;
-    }
-  }
   // As infrastructure increases, so does the average km/h
   // Return how long, in minutes, to traverse a tile based on
   //  infrastructure level

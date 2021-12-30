@@ -8,6 +8,11 @@ import java.util.*;
 
 public class Panel extends JPanel implements ActionListener
 {
+  // Map types for different ways to visualize
+  public enum MapType
+  {
+    DEFAULT, STATE, GEOGRAPHIC, WEATHER
+  }
   // Button event types
   public enum ButtonType
   {
@@ -18,9 +23,11 @@ public class Panel extends JPanel implements ActionListener
   public static final int button_height = 50;
   public static final int width = 50;
   public static final int height = 25;
-  public static final int scale = 10;
+  public static final int scale = 30;
 
-  public TileManager tm = new TileManager(width, height, "ismaia_base.png");
+  private MapType map;
+
+  public TileManager tm = new TileManager(width, height, "ismaia_base_50x25.png");
   public JFrame frame;
   public JPanel panel;
   public JButton button2;
@@ -31,12 +38,35 @@ public class Panel extends JPanel implements ActionListener
     panel = new JPanel();
     frame.add(panel);
     panel.addMouseListener(new PanelListener());
-    JButton button = new JButton("This is a button.");
-    button2 = new JButton("Hello");
+    JButton button = new JButton("Update");
+    // button2 = new SubmitButton("Hello");
 
-    frame.setSize(width * scale, height * scale);
-    // frame.setResizable(false);
+    String[] map_types = { "State", "Geography", "Default" };
+    JComboBox map_box = new JComboBox(map_types);
+    map_box.addActionListener(new ActionListener() {
+        public void actionPerformed(ActionEvent e) {
+          JComboBox cb = (JComboBox)e.getSource();
+          String map_type = (String)cb.getSelectedItem();
+          System.out.println("Drop down value has been selected: " + map_type);
+          switch (map_type)
+          {
+            case "State":
+              map = MapType.STATE;
+              break;
+            case "Geography":
+              map = MapType.GEOGRAPHIC;
+              break;
+            default:
+              map = MapType.DEFAULT;
+              break;
+          }
+          printMap();
+        }
+    });
+    panel.add(map_box);
 
+    frame.setSize((width + 1) * scale, height * scale + 2*button_height);
+    frame.setResizable(false);
     frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
     // frame.setLocationRelativeTo(null);
 
@@ -49,12 +79,10 @@ public class Panel extends JPanel implements ActionListener
 
     frame.setVisible(true);
 
-    // frame.add(panel);
-
     return panel;
   }
 
-  public JFrame getFrame ()
+  public JFrame getFrame()
   {
     return frame;
   }
@@ -99,7 +127,14 @@ public class Panel extends JPanel implements ActionListener
     {
       for (int y = 0; y < height; y++)
       {
-        g.setColor(tm.getTile(coordinates[x][y]).getColor());
+        if (map == MapType.GEOGRAPHIC)
+        {
+          g.setColor(tm.getTile(coordinates[x][y]).getTileColor());
+        }
+        else
+        {
+          g.setColor(tm.getTile(coordinates[x][y]).getColor());
+        }
         g.fillRect(x * scale, y * scale + button_height, scale, scale);
       }
     }
@@ -114,10 +149,10 @@ public class Panel extends JPanel implements ActionListener
   public void actionPerformed(ActionEvent e)
   {
     String command = e.getActionCommand();
-    System.out.println("An action has been triggered");
+    System.out.println("An action has been triggered with command: " + command);
     switch (command)
     {
-      case "NEXT":
+      case "Update":
         tm.update();
       case "REFRESH":
         printMap();
@@ -152,11 +187,12 @@ public class Panel extends JPanel implements ActionListener
 
   public static void main(String[] args)
   {
-    int max_sim_time = 100000;
+    int max_sim_time = 10000;
 
     Panel mother_panel = new Panel();
-    JPanel panel = mother_panel.buildUI();
-    JFrame frame = mother_panel.getFrame();
+    mother_panel.buildUI();
+    // JPanel panel = mother_panel.buildUI();
+    // JFrame frame = mother_panel.getFrame();
 
     Thread t = new Thread()
     {
@@ -164,13 +200,13 @@ public class Panel extends JPanel implements ActionListener
       {
         try
         {
+          mother_panel.actionPerformed(new ActionEvent(mother_panel, 1, "REFRESH"));
           for (int i=0; i < 100; i++)
           {
-            mother_panel.actionPerformed(new ActionEvent(mother_panel, 1, "REFRESH"));
             Thread.sleep(1000);
           }
           Thread.sleep(max_sim_time);
-          System.out.println("Maximum simulation time achieved. Shutting down...");
+          System.out.println("Maximum simulation time reached. Shutting down...");
           Thread.sleep(2000);
         } catch (Exception e)
         {

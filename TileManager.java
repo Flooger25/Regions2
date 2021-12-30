@@ -83,8 +83,7 @@ public class TileManager
           Color color = new Color(pixel, true);
           // Create new tile based off colors
           map.put(c, new Tile(color, c));
-
-          System.out.println(c.toString() + " " + color.getRed() + " " + color.getGreen() + " " + color.getBlue());
+          // System.out.println(c.toString() + " " + color.getRed() + " " + color.getGreen() + " " + color.getBlue());
         }
       }
     }
@@ -92,7 +91,6 @@ public class TileManager
     {
       e.printStackTrace();
     }
-
   }
   //   0  1  2  3...n
   // 0    N
@@ -248,6 +246,7 @@ public class TileManager
   private Boolean processMoveOrder(Order o)
   {
     Order.Item item = o.getItem();
+    // Source and destination tiles of importance
     Tile origin_t = getTile(o.getOrderOrigin());
     Tile dest_t = getTile(o.getOrderTarget());
     switch (item)
@@ -409,8 +408,6 @@ public class TileManager
       System.out.println("Adding state");
       addState(null, null);
     }
-
-  //   }
     // 3 - Return un-processed orders to their respective origins
 
     // 4 - Gather resources
