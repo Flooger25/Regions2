@@ -16,11 +16,11 @@ public class Panel extends JPanel implements ActionListener
   // Initialization of the primary variables
   public static final Random rand = new Random();
   public static final int button_height = 50;
-  public static final int width = 500;
-  public static final int height = 250;
-  public static final int scale = 1;
+  public static final int width = 50;
+  public static final int height = 25;
+  public static final int scale = 10;
 
-  public TileManager tm = new TileManager(width, height);
+  public TileManager tm = new TileManager(width, height, "ismaia_base.png");
   public JFrame frame;
   public JPanel panel;
   public JButton button2;
@@ -34,7 +34,7 @@ public class Panel extends JPanel implements ActionListener
     JButton button = new JButton("This is a button.");
     button2 = new JButton("Hello");
 
-    frame.setSize(width, height);
+    frame.setSize(width * scale, height * scale);
     // frame.setResizable(false);
 
     frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -90,34 +90,40 @@ public class Panel extends JPanel implements ActionListener
     return tm.getMap();
   }
 
+  public void printMap()
+  {
+    Coordinate[][] coordinates = getMap();
+    Graphics g = panel.getGraphics();
+
+    for (int x = 0; x < width; x++)
+    {
+      for (int y = 0; y < height; y++)
+      {
+        g.setColor(tm.getTile(coordinates[x][y]).getColor());
+        g.fillRect(x * scale, y * scale + button_height, scale, scale);
+      }
+    }
+  }
+
+  // Helper method to draw pixels
+  private void drawPixel(int x, int y, Graphics g, int factor)
+  {
+    g.fillRect(x * factor, y * factor, factor, factor);
+  }
+
   public void actionPerformed(ActionEvent e)
   {
     String command = e.getActionCommand();
-    System.out.println("Someone just FUCKING PRESSED ME! " + command);
+    System.out.println("An action has been triggered");
     switch (command)
     {
       case "NEXT":
-        System.out.println("In next case");
         tm.update();
+      case "REFRESH":
+        printMap();
       default:
         break;
     }
-    Graphics g = panel.getGraphics();
-    g.setColor(Color.RED);
-    int i = rand.nextInt(width);
-    int j = rand.nextInt(height);
-    // drawPixel(i, j, g, 10);
-    // The second argument is the horizontal
-    g.fillRect(i, j + button_height, 10, 10);
-
-    // for (int i = 0; i < width; i++)
-    // {
-    //   for (int j = 0; j < height; j++)
-    //   {
-    //     drawPixel(i, j, g, 1);
-    //   }
-    // }
-
   } 
 
   private class PanelListener implements MouseListener
@@ -144,15 +150,9 @@ public class Panel extends JPanel implements ActionListener
     public void mouseReleased(MouseEvent arg0) {}
   }
 
-  // Helper method to draw pixels
-  private void drawPixel(int x, int y, Graphics g, int factor)
-  {
-    g.fillRect(x * factor, y * factor, factor, factor);
-  }
-
   public static void main(String[] args)
   {
-    int max_sim_time = 10000;
+    int max_sim_time = 100000;
 
     Panel mother_panel = new Panel();
     JPanel panel = mother_panel.buildUI();
@@ -164,6 +164,11 @@ public class Panel extends JPanel implements ActionListener
       {
         try
         {
+          for (int i=0; i < 100; i++)
+          {
+            mother_panel.actionPerformed(new ActionEvent(mother_panel, 1, "REFRESH"));
+            Thread.sleep(1000);
+          }
           Thread.sleep(max_sim_time);
           System.out.println("Maximum simulation time achieved. Shutting down...");
           Thread.sleep(2000);

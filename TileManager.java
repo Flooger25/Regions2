@@ -1,4 +1,8 @@
 import java.util.*;
+import java.io.File;
+import java.awt.Color;
+import java.awt.image.BufferedImage;
+import javax.imageio.ImageIO;
 
 public class TileManager
 {
@@ -20,19 +24,75 @@ public class TileManager
     initialize_map();
     map_neighbors();
   }
-  // TODO - Generate a decent map
-  // Just create a blank canvas
+
+  public TileManager(int width, int height, String map_image)
+  {
+    this.width = width;
+    this.height = height;
+
+    this.coordinates = new Coordinate[width][height];
+    this.map = new Hashtable<Coordinate, Tile>();
+    this.states = new Hashtable<Coordinate, State>();
+
+    initialize_map(map_image);
+    map_neighbors();
+  }
+  // Create a randomized canvas
   private void initialize_map()
   {
+    Random rand = new Random();
     for (int i = 0; i < width; i++)
     {
       for (int j = 0; j < height; j++)
       {
         Coordinate c = new Coordinate(i, j);
         coordinates[i][j] = c;
-        map.put(c, new Tile(Tile.TileType.GRASSLAND, c));
+        if (rand.nextInt(100) < 60)
+        {
+          map.put(c, new Tile(Tile.TileType.SEA, c));
+        }
+        else if (rand.nextInt(100) < 90)
+        {
+          map.put(c, new Tile(Tile.TileType.GRASSLAND, c));
+        }
+        else
+        {
+          map.put(c, new Tile(Tile.TileType.MOUNTAIN, c));
+        }
       }
     }
+  }
+
+  private void initialize_map(String map_image)
+  {
+    File f = new File(map_image);
+    BufferedImage img;
+
+    try
+    {
+      img = ImageIO.read(f);
+      for (int i = 0; i < width; i++)
+      {
+        for (int j = 0; j < height; j++)
+        {
+          Coordinate c = new Coordinate(i, j);
+          coordinates[i][j] = c;
+          // Retrieving contents of a pixel
+          int pixel = img.getRGB(i, j);
+          // Creating a Color object from pixel value
+          Color color = new Color(pixel, true);
+          // Create new tile based off colors
+          map.put(c, new Tile(color, c));
+
+          System.out.println(c.toString() + " " + color.getRed() + " " + color.getGreen() + " " + color.getBlue());
+        }
+      }
+    }
+    catch (Exception e)
+    {
+      e.printStackTrace();
+    }
+
   }
   //   0  1  2  3...n
   // 0    N

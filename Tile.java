@@ -1,4 +1,5 @@
 import java.util.*;
+import java.awt.Color;
 
 public class Tile
 {
@@ -33,6 +34,7 @@ public class Tile
   // Valid numbers 0-10
   private int infrastructure;
   private TileType type;
+  private Color color;
   private Coordinate coord;
   private Dictionary<Resource, Integer> resources;
   private Map<Direction, Tile> neighbors;
@@ -44,14 +46,41 @@ public class Tile
     this.coord = c;
     this.infrastructure = 0;
     this.pop = new Population();
-    initialize();
+    initialize(false);
   }
 
-  private final void initialize()
+  public Tile(Color c, Coordinate coord)
+  {
+    this.type = TileType.GRASSLAND;
+    this.coord = coord;
+    this.color = c;
+    this.infrastructure = 0;
+    this.pop = new Population();
+    initialize(true);
+  }
+
+  private final void initialize(Boolean provide_color)
   {
     neighbors = new Hashtable<Direction, Tile>();
     resources = new Hashtable<Resource, Integer>();
-    instantiate_resources();
+    // Define tile type based on color provided
+    if (provide_color)
+    {
+      setTypeFromColor();
+    }
+    instantiate_resources(false);
+  }
+
+  private void setTypeFromColor()
+  {
+    int r = color.getRed();
+    int g = color.getGreen();
+    int b = color.getBlue();
+    System.out.println("Eddie " + r + " " + g + " " + b);
+    // if (r > g && r > b) return Color.RED;
+    if (g > r && g > b) type = TileType.GRASSLAND;
+    else if (b > g && b > r) type = TileType.SEA;
+    else type = TileType.MOUNTAIN;
   }
 
   public String toString()
@@ -64,6 +93,11 @@ public class Tile
     System.out.println(toString());
     System.out.println(resources.toString());
     pop.printPopulation();
+  }
+
+  public Color getColor()
+  {
+    return color;
   }
 
   public Coordinate getCoordinate()
@@ -151,26 +185,31 @@ public class Tile
   }
 
   // Instantiate the presence of resources in the tile
-  private void instantiate_resources()
+  private void instantiate_resources(Boolean provide_color)
   {
     Random rand = new Random();
     switch (type)
     {
       case FOREST:
+        if (provide_color) color = Color.WHITE;
         resources.put(Resource.WOOD, rand.nextInt(900));
         resources.put(Resource.STONE, rand.nextInt(90));
         resources.put(Resource.WHEAT, rand.nextInt(10));
         break;
       case GRASSLAND:
+        if (provide_color) color = Color.GREEN;
         resources.put(Resource.WHEAT, rand.nextInt(900));
         resources.put(Resource.STONE, rand.nextInt(90));
         resources.put(Resource.WOOD, rand.nextInt(10));
         break;
       case MOUNTAIN:
+        if (provide_color) color = Color.GRAY;
         resources.put(Resource.STONE, rand.nextInt(900));
         resources.put(Resource.METAL, rand.nextInt(90));
         resources.put(Resource.GEMS, rand.nextInt(10));
         break;
+      case SEA:
+        if (provide_color) color = Color.BLUE;
       default:
         break;
     }
