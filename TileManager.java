@@ -252,7 +252,7 @@ public class TileManager
     switch (item)
     {
       case RESOURCE:
-        Tile.Resource moved_r = o.getResource();
+        Resource moved_r = o.getResource();
         int quantity = o.getQuantity();
         int extracted_resources = origin_t.extractResource(moved_r, quantity);
         dest_t.addResource(moved_r, extracted_resources);
@@ -426,7 +426,7 @@ public class TileManager
     Tile tile = manager.getTile(center);
     Population p = tile.getPopulation();
     // Setup population stuffs
-    p.pushCreature(new Creature(Creature.Race.HUMAN, Creature.Occupation.PEASANT), 1000);
+    p.pushCreature(new Creature(Creature.Race.HUMAN, Occupation.PEASANT), 1000);
 
     tile.printTile();
     // tile.printNeighbors();
@@ -436,7 +436,7 @@ public class TileManager
     State s = new State(1, manager);
     manager.consumeTile(s, center);
     manager.printStateCoordinates(s);
-    Order move_100_wheat = new Order(s, 1, center, neighbor_E, Tile.Resource.WHEAT, 100);
+    Order move_100_wheat = new Order(s, 1, center, neighbor_E, Resource.WHEAT, 100);
     move_100_wheat.getOrderOrigin().print();
     move_100_wheat.getOrderTarget().print();
     s.addOrder(move_100_wheat);
@@ -456,7 +456,7 @@ public class TileManager
     Tile east_tile = manager.getTile(neighbor_E);
     Population p2 = east_tile.getPopulation();
     Population move_100_humans = new Population();
-    move_100_humans.pushCreature(new Creature(Creature.Race.HUMAN, Creature.Occupation.PEASANT), 250);
+    move_100_humans.pushCreature(new Creature(Creature.Race.HUMAN, Occupation.PEASANT), 250);
     Order move_100_human_peasants = new Order(s, 1, center, neighbor_E, move_100_humans);
     s.addOrder(move_100_human_peasants);
     manager.update();

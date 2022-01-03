@@ -12,6 +12,12 @@ public class Population
   {
     this.creatures = new HashMap<Creature, Integer>();
   }
+
+  public Population(int pop)
+  {
+    this.creatures = new HashMap<Creature, Integer>();
+    populate_default_profiles(pop);
+  }
   // Fixed number of creatures
   public Population(HashMap<Creature.Race, Integer> profile)
   {
@@ -37,6 +43,45 @@ public class Population
       creatures.put(new Creature(entry.getKey()), entry.getValue());
     }
   }
+  // Based on Welsh Piper stats
+  public void populate_default_profiles(int pop)
+  {
+    Random rand = new Random();
+    int remaining = pop;
+    Creature c = new Creature(Creature.Race.HUMAN);
+    Map<Occupation, Double> occupation_rate = c.occupation_rate;
+    // Apply head nobility, range 3-10 + added nobility
+    remaining -= rand.nextInt(11 - 3) + 3;
+    creatures.put(new Creature(Creature.Race.HUMAN, Occupation.NOBLE), pop - remaining + (int)(occupation_rate.get(Occupation.NOBLE) * remaining));
+    // Apply freeholders
+    for (Map.Entry<Occupation, Double> entry : occupation_rate.entrySet())
+    {
+      Occupation o = entry.getKey();
+      // Multiply rate by total population => actual number
+      Double new_c = entry.getValue() * pop;
+      // if pop = 2100, and rate = 1/1500, we are guaranteed
+      //  1. There is a 2100 - 1500 = 600 => 40% chance of another
+      if (new_c > 0.0)
+      {
+        int rate = (int)(1.0 / entry.getValue());
+        Double chance = new_c - new_c.intValue();
+        // Rand (0-1500) < 2100-1500 == 600
+        // System.out.println(rate + " " + new_c + " " + pop + " " + chance);
+        if (rand.nextInt(pop) < pop * chance) new_c += 1.0;
+
+        if (new_c.intValue() > 0)
+        {
+          // Add new creature (race + occ) * new_c into creatures map
+          creatures.put(new Creature(Creature.Race.HUMAN, o), new_c.intValue());
+          remaining -= new_c.intValue();
+        }
+      }
+    }
+    int num_citizens = remaining;
+    num_citizens = (int)(num_citizens / 1.5);
+    creatures.put(new Creature(Creature.Race.HUMAN, Occupation.PEASANT), remaining - num_citizens);
+    creatures.put(new Creature(Creature.Race.HUMAN, Occupation.LABORER), num_citizens);
+  }
 
   public int getPopulation()
   {
@@ -51,6 +96,7 @@ public class Population
   public void printPopulation()
   {
     Creature c;
+    System.out.println("TOTAL : " + getPopulation());
     for (Map.Entry<Creature, Integer> entry : creatures.entrySet())
     {
       c = entry.getKey();
@@ -267,7 +313,7 @@ public class Population
     return true;
   }
   // Change 'n' number of 'c' creatures' occupations to 'o'
-  public Boolean modifyOccupation(Creature c, Creature.Occupation o, int n)
+  public Boolean modifyOccupation(Creature c, Occupation o, int n)
   {
     return splitCreature(c, new Creature(c.getRace(), o), n);
   }
@@ -307,7 +353,7 @@ public class Population
     {
       creatures.remove(entry.getKey());
     }
-    System.out.println("tax_collected = " + tax_collected);
+    // System.out.println("tax_collected = " + tax_collected);
 
     return tax_collected;
   }
@@ -324,12 +370,12 @@ public class Population
     pop.printPopulation();
     if (pop.getPopulation() == 1050) passes++;
     // Test pull
-    Creature pull_c_1 = new Creature(Creature.Race.ELF, Creature.Occupation.LUMBERJACK);
+    Creature pull_c_1 = new Creature(Creature.Race.ELF, Occupation.LUMBERJACK);
     pop.pullCreature(pull_c_1, 20);
     pop.printPopulation();
     if (pop.getPopulation() == 1030) passes++;
     // Test push
-    Creature push_c_1 = new Creature(Creature.Race.HUMAN, Creature.Occupation.PEASANT);
+    Creature push_c_1 = new Creature(Creature.Race.HUMAN, Occupation.PEASANT);
     pop.pushCreature(push_c_1, 20);
     pop.printPopulation();
     if (pop.getPopulation() == 1050) passes++;
@@ -337,26 +383,26 @@ public class Population
     pop.printPopulation();
     if (pop.getPopulation() == 1080) passes++;
     // Test split
-    Creature split_c_1 = new Creature(Creature.Race.HUMAN, Creature.Occupation.LUMBERJACK);
-    Creature split_c_2 = new Creature(Creature.Race.HUMAN, Creature.Occupation.PEASANT);
+    Creature split_c_1 = new Creature(Creature.Race.HUMAN, Occupation.LUMBERJACK);
+    Creature split_c_2 = new Creature(Creature.Race.HUMAN, Occupation.PEASANT);
     pop.splitCreature(split_c_1, split_c_2, 100);
     pop.printPopulation();
     if (pop.getPopulation() == 1080) passes++;
-    Creature split_c_3 = new Creature(Creature.Race.DWARF, Creature.Occupation.MINER);
+    Creature split_c_3 = new Creature(Creature.Race.DWARF, Occupation.MINER);
     pop.splitCreature(split_c_1, split_c_3, 50);
-    Creature split_c_4 = new Creature(Creature.Race.ELF, Creature.Occupation.MERCHANT);
+    Creature split_c_4 = new Creature(Creature.Race.ELF, Occupation.MERCHANT);
     pop.splitCreature(pull_c_1, split_c_4, 0);
     pop.splitCreature(pull_c_1, split_c_4, 140);
     pop.printPopulation();
     // Test combining
-    Creature combine_c_1 = new Creature(Creature.Race.HUMAN, Creature.Occupation.LUMBERJACK);
-    Creature combine_c_2 = new Creature(Creature.Race.HUMAN, Creature.Occupation.PEASANT);
-    Creature combine_c_3 = new Creature(Creature.Race.HUMAN, Creature.Occupation.MINER);
+    Creature combine_c_1 = new Creature(Creature.Race.HUMAN, Occupation.LUMBERJACK);
+    Creature combine_c_2 = new Creature(Creature.Race.HUMAN, Occupation.PEASANT);
+    Creature combine_c_3 = new Creature(Creature.Race.HUMAN, Occupation.MINER);
     pop.combineCreatures(combine_c_1, combine_c_2, 100);
     pop.printPopulation();
     if (pop.getPopulation() == 1080) passes++;
     // Test occupation modification
-    pop.modifyOccupation(combine_c_1, Creature.Occupation.MINER, 100);
+    pop.modifyOccupation(combine_c_1, Occupation.MINER, 100);
     pop.printPopulation();
     if (pop.getPopulation() == 1080) passes++;
     // Test splitting

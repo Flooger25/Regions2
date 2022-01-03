@@ -1,4 +1,5 @@
 import java.util.*;
+import java.lang.Math;
 
 // Combinations
 // Race + Occupation
@@ -9,18 +10,6 @@ public class Creature
   {
     HUMAN, ELF, DWARF, ORC
   }
-  public enum Occupation
-  {
-    // Poor
-    PEASANT,
-    // Modest
-    LUMBERJACK, MINER,
-    // Comfortable
-    ARMORER, MERCHANT,
-    // Wealthy
-    // Aristocratic
-    NOBLE,
-  }
 
   private static final Map<Race, Integer> life_expectancy =
     new Hashtable<Race, Integer>()
@@ -30,6 +19,32 @@ public class Creature
       put(Race.DWARF, 350);
       put(Race.ORC, 55);
     }};
+  
+  // Chance that any given member is of a particular occupation
+  public static final Map<Occupation, Double> occupation_rate =
+    new Hashtable<Occupation, Double>()
+    {{
+      // Citizens
+      // put(Occupation.CITIZEN, 1/1.5)
+      put(Occupation.HIRELING, 1.0/254.0);
+      // Freeholders
+      put(Occupation.LUMBERJACK, 1.0/700.0);
+      // put(Occupation.MINER, 1/1000);
+      // put(Occupation.FARMER, 1/1000);
+      put(Occupation.CHARCOALER, 1.0/400.0);
+      put(Occupation.ARMORER, 1.0/1500.0);
+      put(Occupation.MASON, 1.0/500.0);
+      put(Occupation.MILLER, 1.0/250.0);
+      put(Occupation.WEAPONCRAFTER, 1.0/1000.0);
+      put(Occupation.WOODCRAFTER, 1.0/300.0);
+      // Religion
+      put(Occupation.CLERIC, 1.0/120.0);
+      put(Occupation.PRIEST, 1.0/3600.0);
+      // Law Enforcement
+      put(Occupation.LAW_ENFORCEMENT, 1.0/150.0);
+      // Nobility
+      put(Occupation.NOBLE, 1.0/450.0);
+    }};
 
   // NOTE - Lifstyle is assumed to be half of the income
   // Upkeep is assumed to be 1/3 of the income
@@ -37,12 +52,39 @@ public class Creature
   private static final Map<Occupation, Integer> occupation_income =
     new Hashtable<Occupation, Integer>()
     {{
-      put(Occupation.NOBLE, 80);
-      put(Occupation.PEASANT, 80);
-      put(Occupation.ARMORER, 80);
-      put(Occupation.LUMBERJACK, 80);
-      put(Occupation.MERCHANT, 80);
-      put(Occupation.MINER, 80);
+      // Poor
+      //  1-5
+      // Modest
+      //  6-29
+      // Comfortable
+      //  30-59
+      // Wealthy
+      //  60-119
+      // Aristocratic
+      //  300
+      put(Occupation.PEASANT, 3);
+      put(Occupation.MERCHANT, 120);
+      put(Occupation.MINER, 120);
+      // Citizens
+      // put(Occupation.CITIZEN, 1/1.5)
+      put(Occupation.HIRELING, 6);
+      // Freeholders
+      put(Occupation.LUMBERJACK, 30);
+      // put(Occupation.MINER, 1/1000);
+      // put(Occupation.FARMER, 1/1000);
+      put(Occupation.CHARCOALER, 6);
+      put(Occupation.ARMORER, 60);
+      put(Occupation.MASON, 30);
+      put(Occupation.MILLER, 30);
+      put(Occupation.WEAPONCRAFTER, 60);
+      put(Occupation.WOODCRAFTER, 30);
+      // Religion
+      put(Occupation.CLERIC, 30);
+      put(Occupation.PRIEST, 60);
+      // Law Enforcement
+      put(Occupation.LAW_ENFORCEMENT, 30);
+      // Nobility
+      put(Occupation.NOBLE, 120);
     }};
 
   private Race race;
@@ -54,7 +96,42 @@ public class Creature
   private int last_tax_collected;
   // TODO
   // private Statistics stats;
+  // arr[age][occupation]
+  // Default frequencey of the upper bounded ages
+  //                                         13  17  25  30  40 50 60 70   80   ++
+  public double[] age_freq = new double[] {20.8, 20, 18, 15, 12, 8, 5, 1, 0.2, 0.1};
 
+  // Occupation + Infrastructure => Resource Gain
+  // Resource => +Equipment
+  // Equipment => +Occupation or +Soldiers or +Infrastructure
+  //
+  // [Harvesters]
+  // N TIMBERWRIGHT + I => 500 * N * (log(I + 1) + 1) = L logs
+  // N TIMBERWRIGHT + I => 500 * N * (log(I + 1) + 1) * 10 logs/plank = k planks
+  //
+  // N MINER + I => 300 * N * (log(I + 1) + 1) = M Metal
+  // N MINER + I => 150 * N * (log(I + 1) + 1) = CP Gold/Silver/Copper Pieces
+  // N MINER + I => 10 * N * (log(I + 1) + 1) = G Gems
+  // N MINER + I => 1000 * N * (log(I + 1) + 1) = S Stone
+  //
+  // N FARMER + I => 10K * N * (log(I + 1) + 1) = w wheat bushels
+  // N FARMER + I => L * (1 + (log(I + 1) + 1) / 100) = L Livestock
+  // N FARMER + I => 1000 * N * (log(I + 1) + 1) = w wool/cotton/fibres
+  //
+  // [Secondary Materials]
+  // N CHARCOLER + L-logs => L * 100 = c charcoal pieces
+  //
+  // [Primary Products]
+  // N MILLER/BAKER + I + W-Wheat => N * W * (log(I + 1) + 1) = B bread
+  //
+  // N WOODCRAFTER + I + k-planks => cost of inf upgrade -= k-planks
+  //
+  // N ARMORER + M-Metal + I => M * 1000 GP-worth of armor = A armor
+  // N WEAPONCRAFTER +/ M-Metal +/ LE-Leather +/ L-Logs +/ P-Planks + I = weapons
+  //
+  // N MASON + I + S-Stone => 2 * N * (log(I + 1) + 1) = B Bricks
+  // N MASON + I + B-Bricks => some structure's needs
+  //
   public Creature(Race r)
   {
     this.age = 0;
@@ -78,23 +155,13 @@ public class Creature
   // Simply set income and cost of living based on occupation
   private void emboldOccupation(Occupation o)
   {
-    switch (o)
+    if (occupation_income.get(o) == null)
     {
-      case NOBLE:
-        income = 1440;
-        break;
-      case MINER:
-        income = 400;
-        break;
-      case MERCHANT:
-        income = 700;
-        break;
-      case LUMBERJACK:
-        income = 200;
-        break;
-      default:
-        income = 1;
-        break;
+      income = 1;
+    }
+    else
+    {
+      income = occupation_income.get(o);
     }
     cost_of_living = (int)(income * 5 / 6);
   }
@@ -151,6 +218,11 @@ public class Creature
   public int getTax()
   {
     return last_tax_collected;
+  }
+
+  public int harvest_resource(int I)
+  {
+    return (int)(100.0 * Math.log(I + 1) + 1);
   }
 
   public int update(double tax_rate, int n, int inf)
@@ -213,7 +285,7 @@ public class Creature
       occupation = Occupation.PEASANT;
     }
 
-    System.out.println(n + " => " + new_quantity);
+    // System.out.println(n + " => " + new_quantity);
 
     return new_quantity;
   }

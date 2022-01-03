@@ -37,6 +37,7 @@ public class Order
   // Case 3 : State -> Move -> GP -> Tile
   // Case 4 : State -> Move -> GP -> State
   // Case 5 : State -> Attack -> Population -> Tile
+  // Case 6 : State -> Mod -> Creature -> Tile
 
   // 1 being highest, and 5 being lowest
   // A level of 5 also indicates passive orders that
@@ -52,7 +53,7 @@ public class Order
   private Coordinate originTile;
   private Coordinate targetTile;
   private Population population;
-  private Tile.Resource resource;
+  private Resource resource;
   private int resource_quantity;
 
   // Case 1 : MOVE -> POPULATION -> TILE
@@ -71,7 +72,7 @@ public class Order
     this.target = Target.TILE;
   }
   // Case 2 : MOVE -> RESOURCE -> TILE
-  public Order(State commander, int priority, Coordinate origin, Coordinate dest, Tile.Resource r, int quant)
+  public Order(State commander, int priority, Coordinate origin, Coordinate dest, Resource r, int quant)
   {
     initPriority(priority);
     // Source and dest content
@@ -120,7 +121,7 @@ public class Order
     return population;
   }
 
-  public Tile.Resource getResource()
+  public Resource getResource()
   {
     return resource;
   }
