@@ -397,6 +397,22 @@ public class Tile
     return pop;
   }
 
+  private int gcd(int a, int b)
+  {
+    while (b > 0)
+    {
+      int temp = b;
+      b = a % b;
+      a = temp;
+    }
+    return a;
+  }
+
+  private int lcm(int a, int b)
+  {
+    return a * (b / gcd(a, b));
+  }
+
   // Go through the occupations of the creatures and harvest
   // resources based on infrastructure available
   //
@@ -404,11 +420,11 @@ public class Tile
   // 1. Collect primary resources based on policy and available tile type
   // 2. Create secondary resources based on primary
   // 3. Attempt to fulfill demands for final products
-  // 4. Return status on any unfullfilled requests
+  // 4. Return status on any unfulfilled requests
   private void harvest_resources()
   {
     // Policy for primary resources for harvesting
-    Map<Occupation, Map<Resource, Double>> policy = o_manager.getHarvestPolicy();
+    Map<Occupation, Map<Resource, Double>> harvester = o_manager.getHarvestPolicy();
     // Policy for non-primary resources, including products
     Map<Occupation, Map<Resource, Boolean>> process = o_manager.process_policy;
     Map<Creature, Integer> creatures = pop.getCreatureList();
@@ -416,11 +432,11 @@ public class Tile
     for (Map.Entry<Creature, Integer> entry : creatures.entrySet())
     {
       Creature c = entry.getKey();
-      int n = entry.getValue();
+      int n_multiplier = entry.getValue();
       Occupation o = c.getOccupation();
       // This occupation has a harvest policy, therefore we're about to
       //  get some primary resources harvested
-      if (policy.get(o) != null && o_manager.base_harvest_rates.get(o) != null)
+      if (harvester.get(o) != null && o_manager.base_harvest_rates.get(o) != null)
       {
         // Verify this occupation matches our tile type
         // 1. First get the resources this occupation cares about
@@ -446,7 +462,7 @@ public class Tile
         }
         if (valid_tile)
         {
-          // Perform the harvest
+          // Perform the harvest for a single worker
           res = o_manager.performHarvest(o, infrastructure);
           if (res == null)
           {
@@ -455,12 +471,13 @@ public class Tile
           // Update resource map with added values
           for (Map.Entry<Resource, Integer> new_res : res.entrySet())
           {
-            // Add new resources to resource map
-            addResource(new_res.getKey(), n * new_res.getValue());
+            // Add new resources to resource map multiplied by number of
+            //  identical workers
+            addResource(new_res.getKey(), n_multiplier * new_res.getValue());
           }
         }
       }
-      // TODO Secondary and terinary resources
+      // TODO Secondary and ternary resources
       // Handle secondary resources and products based on what resources
       //  are currently available
       else if (process.get(o) != null)
@@ -479,24 +496,80 @@ public class Tile
           }
           // Verify that our resources in the Tile contain everything
           //  this recipe needs
-          Map<Resource, Double> recipe = recipes.get(processed);
-          Boolean criteria_fullfilled = true;
+          Map<Resource, Double> single_recipe = recipes.get(processed);
+          // Whether we're processing a resource into more resources or
+          //  we're creating a final product
+          Boolean criteria_fulfilled = true;
+          // Quant is simply the number of input resource iterations we
+          //  can extract, rather than the output of the craft.
+          int multiple_quant = 1;
           int minimum_quant = 2147000000;
-          for (Map.Entry<Resource, Double> needed : recipe.entrySet())
+
+          // First go through recipe and find any inverted items.
+          // For every inverted item, find the Least Common Multiple of
+          //  of their inversions. This multiple is then used further.
+          //  NOTE: Only do this for inverted pairs, i.e. if there is only
+          //   one inversion, we just use that.
+          // Iterate through the rest of the resources, non-inverted, and
+          //  multiply those needed by the common multiple of them all.
+          // Follow the same procedure as below for the rest.
+          //
+          // This process is to alleviate the constraints of balancing
+          //  between inverted and non-inverted recipe items. Long story
+          //  short, we cannot split a resource into smaller values. This
+          //  also standardizes the single inversion and multiple
+          //  non-inversion issue.
+          //
+          // For Example:
+          //  Recipe calls for 5 WHEAT, 1/5 FIBER, 1/2 LOGS, and 10 STONE
+          //  Multiplier = 10 => 10*1/5 = 2 for FIBER, 10 * 1/2 = 5 for LOGS
+          //  => 50 WHEAT, 2 FIBER, 5 LOGS, and 100 STONE => 10 Products
+          //
+          // For Example 2:
+          //  Recipe calls for 1/15 LOGS
+          //  Multiplier = 15 => 15*1/15 = 1 for LOGS
+          //  => 1 LOGS => 15 Products
+          //
+          // For Example 3:
+          //  Recipe calls for 3 LOGS, 5 STONE
+          //  Multiplier = 1 => no inversions
+          //  => 3 LOGS, 5 STONE => 1 Product
+          //
+          // Find quant value for all recipe items with inverted requirements
+          for (Map.Entry<Resource, Double> needed : single_recipe.entrySet())
           {
-            // Resource ain't available!
+            if (needed.getValue() < 1.0)
+            {
+              multiple_quant = lcm(multiple_quant, (int)(1 / needed.getValue()));
+            }
+          }
+
+          for (Map.Entry<Resource, Double> needed : single_recipe.entrySet())
+          {
+            // A given resource in the recipe ain't available!
             if (resources.get(needed.getKey()) == null)
             {
-              criteria_fullfilled = false;
+              criteria_fulfilled = false;
               break;
             }
+            // Don't have any of the resources!
+            else if (resources.get(needed.getKey()) == 0)
+            {
+              // Extract to remove from resource list
+              extractResource(needed.getKey(), 1);
+              criteria_fulfilled = false;
+              break;
+            }
+            // Individually needed resource for this recipe
+            Double res_needed = needed.getValue() * multiple_quant;
+            // Same resource, but quantity actually available in the Tile
             int res_available = resources.get(needed.getKey());
-            Double res_needed = needed.getValue();
-            // We need N X resources, so make sure we have N1 >= N X resources
+            // Check to make sure there's enough resources available for us to
+            //  satisfy the recipe
             if (res_available >= res_needed && res_needed >= 1.0)
             {
               // The minimum number of times we can satisfy a given
-              //  needed resource is the maximum number of resources we
+              //  needed resource is the maximum number of products we
               //  can actually create over the whole recipe.
               // For example:
               //  For armor we need:
@@ -507,30 +580,48 @@ public class Tile
               //  1000 / 50 = 20  => 900 left over
               //  1000 / 100 = 10 => 800 left over
               //  1000 / 500 = 2  => 0 left over
-              if ((res_available / res_needed.intValue()) < minimum_quant)
+              // Update the number of products we can create given the
+              //  resources available.
+              int num_satisfied = res_available / res_needed.intValue();
+              if (num_satisfied < minimum_quant)
               {
-                minimum_quant = res_available / res_needed.intValue();
+                minimum_quant = num_satisfied;
               }
             }
-            // We get more output than input.
-            // For example, 1 LOG outputs 5000 CHARCOAL
-            else if (res_needed < 1.0 && res_available > 0)
+            // Don't have enough of the needed resources
+            else
             {
-              if (minimum_quant > infrastructure)
-              {
-                minimum_quant = infrastructure;
-              }
+              criteria_fulfilled = false;
+              break;
             }
           }
-          // The needed resources exist
-          if (criteria_fullfilled && minimum_quant > 0)
+          // Before jumping into extraction, we first need to potentially reduce
+          //  the amount of items created based on the number of workers available
+          //  to do the work to convert.
+          // NOTE:
+          //  When we have non-inverted values, such as the example above, the below
+          //  may look like:
+          //   2 > 1 * 1 => quant = 1
+          //  When we have inverted values, the below may look like
+          //   1500 > 1 * 1 => quant = 1
+          if (minimum_quant > n_multiplier * infrastructure)
           {
-            for (Map.Entry<Resource, Double> needed : recipe.entrySet())
+            minimum_quant = n_multiplier * infrastructure;
+          }
+          multiple_quant *= minimum_quant;
+
+          // Now that we've calculated the number of products we can create,
+          //  we can go through and extract + add the needed items.
+          if (criteria_fulfilled && multiple_quant > 0)
+          {
+            // Iterate through the different resources needed to craft the new product
+            //  and extract them.
+            for (Map.Entry<Resource, Double> needed : single_recipe.entrySet())
             {
-              extractResource(needed.getKey(), needed.getValue().intValue() * minimum_quant);
+              extractResource(needed.getKey(), (int)(needed.getValue() * multiple_quant));
             }
-            // Add new resources to resource map
-            addResource(processed, minimum_quant);
+            // Add new item to resource map
+            addResource(processed, multiple_quant);
           }
         }
       }
@@ -628,21 +719,49 @@ public class Tile
     // tile.printTile();
 
     // Welsh Piper Population Generation
-    tile = new Tile(Tile.TileType.FOREST, c);
-    Population wp = new Population(412);
-    tile.getPopulation().absorbPopulation(wp);
-    // wp.printPopulation();
-    // p = wp;
-    // p.absorbPopulation(wp);
+    // tile = new Tile(Tile.TileType.FOREST, c);
+    // Population wp = new Population(412);
+    // tile.getPopulation().absorbPopulation(wp);
+    // // wp.printPopulation();
+    // // p = wp;
+    // // p.absorbPopulation(wp);
+    // // tile.printTile();
+    // tile.setAutoUpgrade(true);
+    // tile.addResource(Resource.CP, 5000);
     // tile.printTile();
+
+    // for (int i = 0; i < 2; i++)
+    // {
+    //   tile.update();
+    // }
+    // tile.printTile();
+
+    // Test Harvesting
+    System.out.println("===== BEGIN HARVEST TEST =====");
+    tile = new Tile(Tile.TileType.FOREST, c);
+    Population wp = new Population(0);
+    // Start off with basic producers
+    wp.pushCreature(new Creature(Creature.Race.HUMAN, Occupation.WOODCRAFTER), 1);
+    wp.pushCreature(new Creature(Creature.Race.HUMAN, Occupation.MILLER), 2);
+    wp.pushCreature(new Creature(Creature.Race.HUMAN, Occupation.ARMORER), 2);
+    // wp.pushCreature(new Creature(Creature.Race.HUMAN, Occupation.WOODCRAFTER), 2);
+    wp.printPopulation();
+    // Absorb the population into the tile
+    tile.getPopulation().absorbPopulation(wp);
     tile.setAutoUpgrade(true);
     tile.addResource(Resource.CP, 5000);
+    tile.addResource(Resource.FIBERS, 1000);
+    tile.addResource(Resource.METAL, 1000);
+    tile.addResource(Resource.CHARCOAL, 1000);
     tile.printTile();
 
-    for (int i = 0; i < 2; i++)
+    for (int i = 0; i < 5; i++)
     {
       tile.update();
+      tile.printTile();
     }
+    tile.addResource(Resource.CHARCOAL, 1000);
+    tile.update();
     tile.printTile();
 
     System.out.println("TESTS PASSED : [" + passes + "/3]");

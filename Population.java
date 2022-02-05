@@ -16,7 +16,10 @@ public class Population
   public Population(int pop)
   {
     this.creatures = new HashMap<Creature, Integer>();
-    populate_default_profiles(pop);
+    if (pop > 0)
+    {
+      populate_default_profiles(pop);
+    }
   }
   // Fixed number of creatures
   public Population(HashMap<Creature.Race, Integer> profile)
