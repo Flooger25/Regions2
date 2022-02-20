@@ -108,9 +108,37 @@ public class Population
     System.out.println("");
   }
 
+  // Return entire creature list
   public Map<Creature, Integer> getCreatureList()
   {
     return creatures;
+  }
+
+  // Return creatures with the same Occupation specified that exist in
+  // the creatures map.
+  // NOTE - What is returned is a copy of what exists in the map
+  public Map<Creature, Integer> getCreatureList(Occupation o)
+  {
+    if (o == null)
+    {
+      System.out.println("ERROR - Invalid Occupation in query getCreatureList().");
+      return null;
+    }
+    Map<Creature, Integer> found = new HashMap<Creature, Integer>();
+    Creature c;
+    for (Map.Entry<Creature, Integer> entry : creatures.entrySet())
+    {
+      if (entry != null)
+      {
+        c = entry.getKey();
+        // Found a creature with the same occupation, so add it to the map
+        if (c.getOccupation() == o)
+        {
+          found.put(new Creature(c.getRace(), o), entry.getValue());
+        }
+      }
+    }
+    return found;
   }
   // Return a creature which is considered 'equal' to the queried
   private Creature fetchCreature(Creature query)
@@ -170,7 +198,7 @@ public class Population
     }
   }
   // Split current creatures 'old' into 'n' 'new' creatures in the same population
-  public Boolean splitCreature(Creature old_c, Creature new_c, int n)
+  public int splitCreature(Creature old_c, Creature new_c, int n)
   {
     // Get current number of old creature entries
     int number_old;
@@ -180,13 +208,13 @@ public class Population
     if (n < 1)
     {
       System.out.println("ERROR: Attempted to split creatures of non-positive value");
-      return false;
+      return -1;
     }
     // Verify we don't split some race into another
     if (old_c.getRace() != new_c.getRace())
     {
       System.out.println("ERROR: Attempted to split creatures of non-compatible races");
-      return false;
+      return -1;
     }
     // Verify the old creature actually exists
     if (old_actual != null)
@@ -207,6 +235,7 @@ public class Population
         }
         // Set 'number_old' - 'n' old creatures to hashtable
         creatures.put(old_actual, number_old - n);
+        return n;
       }
       else
       {
@@ -221,10 +250,10 @@ public class Population
         }
         // Destroy old creature entry
         creatures.remove(old_actual);
+        return number_old;
       }
-      return true;
     }
-    return false;
+    return -1;
   }
   // Combine the secondary creature into the first
   // Cannot combine creatures of different races
@@ -315,11 +344,52 @@ public class Population
     }
     return true;
   }
+  // TODO - Integrate isValidConversion logic in Tile.java
   // Change 'n' number of 'c' creatures' occupations to 'o'
-  public Boolean modifyOccupation(Creature c, Occupation o, int n)
+  public int modifyOccupation(Creature c, Occupation o, int n)
   {
     return splitCreature(c, new Creature(c.getRace(), o), n);
   }
+
+  public int modifyOccupation(Occupation old_o, Occupation new_o, int n)
+  {
+    if (old_o == null || new_o == null || n < 1)
+    {
+      System.out.println("ERROR - Invalid input params for modifyOccupation.");
+      return -1;
+    }
+    int leftover = n;
+    // Loop through the creatures, and if any share the same Occupation as old_o,
+    // then execute the modifyOccupation method to change them. Whatever wasn't changed
+    // will be used in the next iteration in the for loop
+    Map<Creature, Integer> found = new HashMap<Creature, Integer>();
+    for (Map.Entry<Creature, Integer> entry : creatures.entrySet())
+    {
+      if (entry != null)
+      {
+        // Found a creature with the same occupation, so add it to the map
+        if (entry.getKey().getOccupation() == old_o)
+        {
+          found.put(new Creature(entry.getKey().getRace(), old_o), entry.getValue());
+        }
+      }
+    }
+    // To avoid concurrency issues, based on what's in the 'found' map, call the
+    // appropriate modifyOccupation method.
+    for (Map.Entry<Creature, Integer> entry : found.entrySet())
+    {
+      if (entry != null)
+      {
+        leftover -= modifyOccupation(entry.getKey(), new_o, leftover);
+      }
+      if (leftover < 1)
+      {
+        break;
+      }
+    }
+    return n - leftover;
+  }
+
   // Increase or decrease population based on creature-related items
   //  and tile information
   public int update(double tax_rate, int inf)
@@ -373,11 +443,13 @@ public class Population
     pop.printPopulation();
     if (pop.getPopulation() == 1050) passes++;
     // Test pull
+    System.out.println("====TEST PULL====");
     Creature pull_c_1 = new Creature(Creature.Race.ELF, Occupation.LUMBERJACK);
     pop.pullCreature(pull_c_1, 20);
     pop.printPopulation();
     if (pop.getPopulation() == 1030) passes++;
     // Test push
+    System.out.println("====TEST PUSH====");
     Creature push_c_1 = new Creature(Creature.Race.HUMAN, Occupation.PEASANT);
     pop.pushCreature(push_c_1, 20);
     pop.printPopulation();
@@ -386,6 +458,7 @@ public class Population
     pop.printPopulation();
     if (pop.getPopulation() == 1080) passes++;
     // Test split
+    System.out.println("====TEST SPLIT====");
     Creature split_c_1 = new Creature(Creature.Race.HUMAN, Occupation.LUMBERJACK);
     Creature split_c_2 = new Creature(Creature.Race.HUMAN, Occupation.PEASANT);
     pop.splitCreature(split_c_1, split_c_2, 100);
@@ -398,6 +471,7 @@ public class Population
     pop.splitCreature(pull_c_1, split_c_4, 140);
     pop.printPopulation();
     // Test combining
+    System.out.println("====TEST COMBINING====");
     Creature combine_c_1 = new Creature(Creature.Race.HUMAN, Occupation.LUMBERJACK);
     Creature combine_c_2 = new Creature(Creature.Race.HUMAN, Occupation.PEASANT);
     Creature combine_c_3 = new Creature(Creature.Race.HUMAN, Occupation.MINER);
@@ -405,10 +479,17 @@ public class Population
     pop.printPopulation();
     if (pop.getPopulation() == 1080) passes++;
     // Test occupation modification
+    System.out.println("====TEST MODIFY OCCUPATION====");
     pop.modifyOccupation(combine_c_1, Occupation.MINER, 100);
     pop.printPopulation();
     if (pop.getPopulation() == 1080) passes++;
+    pop.pushCreature(new Creature(Creature.Race.DWARF, Occupation.MINER), 120);
+    pop.printPopulation();
+    if (pop.modifyOccupation(Occupation.MINER, Occupation.PEASANT, 200) == 200) passes++;
+    if (pop.getPopulation() == 1200) passes++;
+    pop.printPopulation();
     // Test splitting
+    System.out.println("====TEST SPLIT====");
     Map<Creature, Integer> splitMap = new HashMap<Creature, Integer>();
     splitMap.put(combine_c_1, 450);
     splitMap.put(split_c_4, 15);
@@ -418,6 +499,7 @@ public class Population
     pop.printPopulation();
     pop2.printPopulation();
     // Test absorption
+    System.out.println("====TEST ABSORB====");
     if (pop.absorbPopulation(pop2)) passes++;
     if (pop.getPopulation() == 1080) passes++;
     if (pop2.getPopulation() == 465) passes++;
@@ -430,8 +512,9 @@ public class Population
     for (int i = 0; i < 50; i++)
     {
       pop.update(.1, i);
-      pop.printPopulation();
+      // pop.printPopulation();
     }
+    pop.printPopulation();
 
     System.out.println("TESTS PASSED : [" + passes + "/12]");
   }

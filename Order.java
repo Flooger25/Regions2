@@ -5,7 +5,7 @@ public class Order
   // Order types
   public enum Actions
   {
-    MOVE, ATTACK
+    MOVE, ATTACK, MOD
   }
   public enum Item
   {
@@ -54,6 +54,7 @@ public class Order
   private Coordinate targetTile;
   private Population population;
   private Resource resource;
+  private Occupation occupation;
   private int resource_quantity;
 
   // Case 1 : MOVE -> POPULATION -> TILE
@@ -89,6 +90,23 @@ public class Order
   }
   // TODO - Cases 3-5
 
+  // Case 6 : State -> Mod -> Creature -> Tile
+  public Order(State commander, int priority, Coordinate origin, Occupation o, int quant)
+  {
+    initPriority(priority);
+    // Source and dest content
+    this.originState = commander;
+    this.originTile = origin;
+    this.targetTile = null;
+    // Item being used
+    this.occupation = o;
+    this.resource_quantity = quant;
+    // Setting types
+    this.action = Actions.MOD;
+    this.item = Item.POPULATION;
+    this.target = Target.TILE;
+  }
+
   private void initPriority(int priority)
   {
     if (priority > 5) this.priority = 5;
@@ -119,6 +137,11 @@ public class Order
   public Population getPopulation()
   {
     return population;
+  }
+
+  public Occupation getOccupation()
+  {
+    return occupation;
   }
 
   public Resource getResource()

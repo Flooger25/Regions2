@@ -328,6 +328,37 @@ public class TileManager
     }
     return false;
   }
+
+  private Boolean processModOrder(Order o)
+  {
+    Order.Item item = o.getItem();
+    // Get tile we're modifying
+    Tile origin_t = getTile(o.getOrderOrigin());
+    switch (item)
+    {
+      case POPULATION:
+        // Get Occupation we're trying to generate
+        Occupation new_o = o.getOccupation();
+        int quant = o.getQuantity();
+        if (new_o != null || quant < 1)
+        {
+          // Farm off handling to the Tile itself then examine the status returned
+          int status = origin_t.processOccupationOrder(new_o, quant);
+          if (status > 0)
+          {
+            System.out.println("WARNING : Failed to generate " + status + " / " + quant + " " + new_o.name());
+          }
+        }
+        else
+        {
+          System.out.println("ERROR : Invalid mod occupation order! Cannot process...");
+        }
+        break;
+      default:
+        break;
+    }
+    return false;
+  }
   // Process a given Order starting with its action
   private Boolean processOrderByAction(Order o)
   {
@@ -359,6 +390,8 @@ public class TileManager
         // {
         //   processAttackOrder(o);
         // }
+        break;
+      case MOD:
         break;
       default:
         break;

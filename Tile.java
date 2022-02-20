@@ -667,6 +667,62 @@ public class Tile
       }
     }
   }
+
+  // An order has been issued to modify the 'old_o' Occupation of 'n' creatures to a
+  // new Occupation 'new_o'.
+  public int processOccupationOrder(Occupation old_o, Occupation new_o, int n)
+  {
+    if (old_o == null || new_o == null || n < 1)
+    {
+      System.out.println("ERROR - Invalid input params for OccupationOrder.");
+      return -1;
+    }
+    if (!o_manager.isValidConversion(new_o, old_o))
+    {
+      System.out.println("ERROR - Invalid Occupation conversion : " + old_o + " => " + new_o);
+      return -1;
+    }
+    // Utilize Population function and just return its value
+    return pop.modifyOccupation(old_o, new_o, n);
+  }
+
+  // An order has been issued to generate 'new_o' Occupations.
+  public int processOccupationOrder(Occupation new_o, int n)
+  {
+    if (new_o == null || n < 1)
+    {
+      System.out.println("ERROR - Invalid input params for OccupationOrder.");
+      return -1;
+    }
+    if (o_manager.occupation_conversion_policy.get(new_o) == null)
+    {
+      System.out.println("ERROR - Invalid new_o in conversion policy for OccupationOrder.");
+      return -1;
+    }
+    // Get options on valid old Occupations we can generate from
+    Map<Occupation, Integer> options = o_manager.occupation_conversion_policy.get(new_o);
+    int leftover = n;
+    // Iterate over valid originating occupations and attempt to modify
+    for (Map.Entry<Occupation, Integer> entry : options.entrySet())
+    {
+      if (entry != null)
+      {
+        // If the new_o can be generated from the old one.
+        // NOTE - We should never fail this since we're directly getting info from the
+        //  occupation_conversion_policy map.
+        if (o_manager.isValidConversion(new_o, entry.getKey()))
+        {
+          leftover -= pop.modifyOccupation(entry.getKey(), new_o, leftover);
+        }
+      }
+      if (leftover < 1)
+      {
+        break;
+      }
+    }
+    return n - leftover;
+  }
+
   // To update the Tile we perform the following
   // 1. Update population based on tax rate and infrastructure
   // 2. Update the infrastructure and/or pay for maintenance

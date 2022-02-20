@@ -19,17 +19,6 @@ enum Occupation
 
 public class OccupationManager
 {
-  // Super table of valid occupation conversions/changes
-  public static final Map<Occupation, Map<Occupation, Boolean>>
-    valid_conversions = new Hashtable<Occupation, Map<Occupation, Boolean>>()
-    {{
-      put(Occupation.HIRELING, new Hashtable<Occupation, Boolean>()
-      {{
-        put(Occupation.PEASANT, true);
-        put(Occupation.LABORER, true);
-      }});
-    }};
-
   // Super table of base harvest rates before other factors
   public static final Map<Occupation, Map<Resource, Integer>>
     base_harvest_rates = new Hashtable<Occupation, Map<Resource, Integer>>()
@@ -112,6 +101,41 @@ public class OccupationManager
         put(Resource.ARMOR, true);
       }});
     }};
+  
+  // Table that tracks which occupations can be converted into the high-level
+  // occupation, i.e. to get to some Occupation X, you need Occupations A, B, or C.
+  // First Occupation - Occupation you would like to obtain/transfer to
+  // Second Occupation - Occupation needed that can be converted to the first
+  // Integer - Number of ticks/updates/cycles needed for the change to occur
+  //   NOTE - A number of 0 implies an instantaneous transfer
+  public static final Map<Occupation, Map<Occupation, Integer>>
+    occupation_conversion_policy = new Hashtable<Occupation, Map<Occupation, Integer>>()
+    {{
+      put(Occupation.PEASANT, new Hashtable<Occupation, Integer>()
+      {{
+        put(Occupation.LABORER, 0);
+      }});
+      put(Occupation.LABORER, new Hashtable<Occupation, Integer>()
+      {{
+        put(Occupation.LABORER, 0);
+      }});
+      put(Occupation.LUMBERJACK, new Hashtable<Occupation, Integer>()
+      {{
+        put(Occupation.MINER, 1);
+        put(Occupation.FARMER, 2);
+        put(Occupation.MASON, 1);
+        put(Occupation.MILLER, 3);
+        put(Occupation.WOODCRAFTER, 1);
+      }});
+      put(Occupation.MINER, new Hashtable<Occupation, Integer>()
+      {{
+        put(Occupation.LUMBERJACK, 1);
+        put(Occupation.FARMER, 2);
+        put(Occupation.MASON, 1);
+        put(Occupation.MILLER, 3);
+        put(Occupation.WOODCRAFTER, 1);
+      }});
+    }};
 
   private Occupation type;
 
@@ -182,11 +206,11 @@ public class OccupationManager
 
   // Check if going from Occupation from to Occupation to
   //  is a valid conversion
-  public Boolean isValidConversion(Occupation from, Occupation to)
+  public Boolean isValidConversion(Occupation dest, Occupation src)
   {
-    if (valid_conversions.get(from) != null)
+    if (occupation_conversion_policy.get(dest) != null)
     {
-      if (valid_conversions.get(from).get(to) != null)
+      if (occupation_conversion_policy.get(dest).get(src) != null)
       {
         return true;
       }
@@ -199,8 +223,8 @@ public class OccupationManager
   {
     int passes = 0;
     OccupationManager om = new OccupationManager();
-    System.out.println("Ed : " + valid_conversions);
-    if (om.isValidConversion(Occupation.HIRELING, Occupation.PEASANT)) passes++;
+    System.out.println("Ed : " + occupation_conversion_policy);
+    if (om.isValidConversion(Occupation.LUMBERJACK, Occupation.WOODCRAFTER)) passes++;
     if (!om.isValidConversion(Occupation.HIRELING, Occupation.NOBLE)) passes++;
     if (!om.isValidConversion(Occupation.NOBLE, Occupation.PEASANT)) passes++;
 
