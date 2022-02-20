@@ -12,27 +12,41 @@ enum Resource
   BREAD, ARMOR, WEAPONS,
 }
 
+// Valid directions are N, S, E, W
+//    [ ]
+// [] [X] []
+//    [ ]
+//
+// ...or NW, NE, W, E, SW, SE
+//  []   []
+// [] [X] []
+//  []   []
+//
+enum Direction
+{
+  NW, NE, W, E, SW, SE, N, S
+}
+
 public class Tile
 {
-  // Valid directions are N, S, E, W
-  //    [ ]
-  // [] [X] []
-  //    [ ]
-  //
-  // ...or NW, NE, W, E, SW, SE
-  //  []   []
-  // [] [X] []
-  //  []   []
-  //
-  public enum Direction
-  {
-    NW, NE, W, E, SW, SE, N, S
-  }
   // Geographic tile type
   public enum TileType
   {
     FOREST, GRASSLAND, SEA, MOUNTAIN, HILLS
   }
+
+  // Table of weights of environment on travel time.
+  // Each double represents the number that is subtracted against the
+  //  base time. The lower the number, the easier it is to travel
+  //  through this tile.
+  public static final Map<TileType, Double>
+    env_travel_weight = new Hashtable<TileType, Double>()
+    {{
+      put(TileType.FOREST, 0.3);
+      put(TileType.GRASSLAND, 0.01);
+      put(TileType.MOUNTAIN, 0.99);
+      put(TileType.HILLS, 0.5);
+    }};
 
   // Super table of valid primary resources available given a tile type
   public static final Map<Resource, Map<TileType, Boolean>>
@@ -129,6 +143,8 @@ public class Tile
       }});
     }};
 
+  public static final int max_infrastructure = 10;
+
   public static int max_neighbors = 6;
   // Size of tile in km
   public static final int tile_size = 1;
@@ -140,8 +156,9 @@ public class Tile
   // update call.
   private Boolean auto_upgrade = false;
   private double tax_rate = 0.0;
+  private int pop_traveled = 1;
 
-  private static TileType type;
+  private TileType type;
   private Color color;
   private Coordinate coord;
   private OccupationManager o_manager;
@@ -161,25 +178,21 @@ public class Tile
 
   public Tile(Color c, Coordinate coord)
   {
-    this.type = TileType.GRASSLAND;
+    // Define tile type based on color provided
+    this.type = getTypeFromColor(c);
     this.coord = coord;
     this.color = c;
     this.infrastructure = 0;
     this.pop = new Population();
     this.o_manager = new OccupationManager();
-    initialize(true);
+    initialize(false);
   }
 
   private final void initialize(Boolean provide_color)
   {
     neighbors = new Hashtable<Direction, Tile>();
     resources = new Hashtable<Resource, Integer>();
-    // Define tile type based on color provided
-    if (provide_color)
-    {
-      setTypeFromColor();
-    }
-    instantiate_resources(false);
+    instantiate_resources(provide_color);
   }
 
   // Instantiate the presence of resources in the tile
@@ -215,16 +228,16 @@ public class Tile
     resources.put(Resource.CP, 0);
   }
 
-  private void setTypeFromColor()
+  private TileType getTypeFromColor(Color color)
   {
     int r = color.getRed();
     int g = color.getGreen();
     int b = color.getBlue();
     // System.out.println("Eddie " + r + " " + g + " " + b);
     // if (r > g && r > b) return Color.RED;
-    if (g > r && g > b) type = TileType.GRASSLAND;
-    else if (b > g && b > r) type = TileType.SEA;
-    else type = TileType.MOUNTAIN;
+    if (g > r && g > b) return TileType.GRASSLAND;
+    else if (b > g && b > r) return TileType.SEA;
+    else return TileType.MOUNTAIN;
   }
 
   public Color getTileColor()
@@ -365,17 +378,44 @@ public class Tile
     return resources.keys();
   }
 
+  // Wear down the road based on the population that moved.
+  // The more creatures traveling in a given route, the easier
+  //  it is for future creatures to travel the same route.
+  public void migrate(int pop)
+  {
+    pop_traveled += pop;
+  }
+
   // As infrastructure increases, so does the average km/h
   // Return how long, in minutes, to traverse a tile based on
   //  infrastructure level
-  public int getTravelTime()
+  // Cost = Time = env_f + pop_traveled + inf
+  // => 60% env, 25% road, 15% inf
+  // Base rate is 3 kph, the following parameters either
+  //  increase or decrease this:
+  // Environment => 60% weight
+  // Road Travel => 30% weight
+  // Infrastructure => 10% weight
+  //
+  // If ENV = 90% => 90 + 0.6 * 0.1 = .96
+  // If RT = 1500 => 3.17 * 0.3 => 0.95
+  // If inf = 5 => 5 / 10 => 0.5
+  // ... => 3 * ( (0.6 * - 0.1) + (0.3 * 0.95) + (0.1 * 0.5) )
+  // 2 * (1 + ( (0.6 * - 0.9) + (0.3 * 4.17) + (0.1 * (6 / 10)) ))
+  public Double getTravelTime()
   {
-    return (int)(tile_size * (1 / (infrastructure + 1) * 60)); // minutes/hr
+    Double base_rate = 2.0;
+    Double env_rate = 0.0;
+    if (env_travel_weight.get(type) != null)
+    {
+      env_rate = env_travel_weight.get(type);
+    }
+    return 60 / (base_rate * (1 + (0.6 - env_rate) + (0.3 * Math.log10(pop_traveled)) + (0.1 * ((float)infrastructure / max_infrastructure)) ));
   }
 
   public int getCostOfUpgrade()
   {
-    if (infrastructure < 10)
+    if (infrastructure < max_infrastructure)
     {
       return (int)(100 * Math.pow(1.9, infrastructure + 1));
     }
@@ -632,6 +672,12 @@ public class Tile
   // 2. Update the infrastructure and/or pay for maintenance
   public void update()
   {
+    // Degrade the roads
+    pop_traveled *= 0.8;
+    if (pop_traveled < 1)
+    {
+      pop_traveled = 1;
+    }
     // First collect resources
     harvest_resources();
     // Second, update population and collect taxes
@@ -763,6 +809,9 @@ public class Tile
     tile.addResource(Resource.CHARCOAL, 1000);
     tile.update();
     tile.printTile();
+    System.out.println(tile.getTravelTime());
+    tile.migrate(5900);
+    System.out.println(tile.getTravelTime());
 
     System.out.println("TESTS PASSED : [" + passes + "/3]");
   }

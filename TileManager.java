@@ -6,11 +6,15 @@ import javax.imageio.ImageIO;
 
 public class TileManager
 {
+  public static final Double hypotenuse = 1.4142135623730951;
   private int width;
   private int height;
+  // Integers => Coordinates
   private Coordinate[][] coordinates;
   private Map<Coordinate, Tile> map;
   private Map<Coordinate, State> states;
+  // Coordinates => Paths on Coordinate
+  private Map<Coordinate, ArrayList<Path>> paths;
 
   public TileManager(int width, int height)
   {
@@ -20,6 +24,7 @@ public class TileManager
     this.coordinates = new Coordinate[width][height];
     this.map = new Hashtable<Coordinate, Tile>();
     this.states = new Hashtable<Coordinate, State>();
+    this.paths = new Hashtable<Coordinate, ArrayList<Path>>();
 
     initialize_map();
     map_neighbors();
@@ -33,10 +38,12 @@ public class TileManager
     this.coordinates = new Coordinate[width][height];
     this.map = new Hashtable<Coordinate, Tile>();
     this.states = new Hashtable<Coordinate, State>();
+    this.paths = new Hashtable<Coordinate, ArrayList<Path>>();
 
     initialize_map(map_image);
     map_neighbors();
   }
+
   // Create a randomized canvas
   private void initialize_map()
   {
@@ -47,6 +54,7 @@ public class TileManager
       {
         Coordinate c = new Coordinate(i, j);
         coordinates[i][j] = c;
+        paths.put(c, new ArrayList<Path>());
         if (rand.nextInt(100) < 60)
         {
           map.put(c, new Tile(Tile.TileType.SEA, c));
@@ -77,13 +85,13 @@ public class TileManager
         {
           Coordinate c = new Coordinate(i, j);
           coordinates[i][j] = c;
+          paths.put(c, new ArrayList<Path>());
           // Retrieving contents of a pixel
           int pixel = img.getRGB(i, j);
           // Creating a Color object from pixel value
           Color color = new Color(pixel, true);
           // Create new tile based off colors
           map.put(c, new Tile(color, c));
-          // System.out.println(c.toString() + " " + color.getRed() + " " + color.getGreen() + " " + color.getBlue());
         }
       }
     }
@@ -113,22 +121,22 @@ public class TileManager
         // North
         if (j - 1 >= 0)
         {
-          tile.setNeighbor(Tile.Direction.N, map.get(coordinates[i][j - 1]));
+          tile.setNeighbor(Direction.N, map.get(coordinates[i][j - 1]));
         }
         // South
         if (j + 1 < height)
         {
-          tile.setNeighbor(Tile.Direction.S, map.get(coordinates[i][j + 1]));
+          tile.setNeighbor(Direction.S, map.get(coordinates[i][j + 1]));
         }
         // East
         if (i + 1 < width)
         {
-          tile.setNeighbor(Tile.Direction.E, map.get(coordinates[i + 1][j]));
+          tile.setNeighbor(Direction.E, map.get(coordinates[i + 1][j]));
         }
         // West
         if (i - 1 >= 0)
         {
-          tile.setNeighbor(Tile.Direction.W, map.get(coordinates[i - 1][j]));
+          tile.setNeighbor(Direction.W, map.get(coordinates[i - 1][j]));
         }
       }
     }
@@ -149,6 +157,16 @@ public class TileManager
     return null;
   }
 
+  private Boolean verifyCoordRange(int x, int y)
+  {
+    if ((x > -1) && (x < width) &&
+        (y > -1) && (y < height))
+    {
+      return true;
+    }
+    return false;
+  }
+
   private Boolean verifyCoordRange(Coordinate coordinate)
   {
     if ((coordinate.x > -1) && (coordinate.x < width) &&
@@ -167,6 +185,16 @@ public class TileManager
     }
     return null;
   }
+
+  public Tile getTile(int x, int y)
+  {
+    if (verifyCoordRange(x, y))
+    {
+      return map.get(coordinates[x][y]);
+    }
+    return null;
+  }
+
   // Verify whether the given tile exists or not
   public Boolean verifyTile(Tile t)
   {
@@ -176,6 +204,15 @@ public class TileManager
     }
     return true;
   }
+
+  public void printTiles()
+  {
+    for (Map.Entry<Coordinate, Tile> entry : map.entrySet())
+    {
+      entry.getValue().printTile();
+    }
+  }
+
   public void printStateCoordinates(State s)
   {
     for (Map.Entry<Coordinate, State> entry : states.entrySet())
@@ -266,8 +303,11 @@ public class TileManager
           Population extracted_population = origin_t.getPopulation().splitPopulation(moved_p.getCreatureList());
           if (extracted_population != null)
           {
+            int emigrated = extracted_population.getPopulation();
+            origin_t.migrate(emigrated);
             // Absorb the extracted population into the destination tile
             dest_t.getPopulation().absorbPopulation(extracted_population);
+            dest_t.migrate(emigrated);
             return true;
           }
           else
@@ -345,43 +385,329 @@ public class TileManager
     return output_cmds;
   }
 
-  // public Stack shortestPath(Coordinate start, Coordinate end)
-  // {
-  //   Stack open = new Stack();
-  //   open.push(start);
-  //   Stack close = new Stack();
-  //   close.push(start);
+  private class CoordNode
+  {
+    public int x;
+    public int y;
+    public Double value;
+    public Direction direction;
 
-  //   // Tiles : 0,0  0,1  0,2  0,3  0,4
-  //   //         1,0  1,1  1,2  1,3  1,4
-  //   //         2,0  2,1  2,2  2,3  2,4
-  //   //         3,0  3,1  3,2  3,3  3,4
-  //   //         4,0  4,1  4,2  4,3  4,4
-  //   // Time  :  1    2    2    1    1
-  //   //          2    2    2    1    1
-  //   //          2    3    5    1    1
-  //   //          2    2    2    1    1
-  //   //          2    3    2    1    2
-  //   // f     :  5    8    6    4    5
-  //   //          8    6    4    3    4
-  //   //          6    6    5    2    3
-  //   //          4    2    X    1    2
-  //   //          6    6    2    2    6
+    public CoordNode(Coordinate c)
+    {
+      this.x = c.x;
+      this.y = c.y;
+      this.value = 0.0;
+      this.direction = Direction.N;
+    }
 
-  //   // Grab starting node
-  //   // Generate possible routes
-  //   // Grab node with least expensive route
-  //   //  Distance away * time to get there on current node
-  // }
+    public CoordNode(int x, int y, Double v, Direction d)
+    {
+      this.x = x;
+      this.y = y;
+      this.value = v;
+      this.direction = d;
+    }
 
-  // public void generateNeighbors(Stack s, Coordinate c)
-  // {
-  //   Coordinate neighbor = new Coordinate(c.x + 1, c.y);
-  //   if (verifyCoordRange(neighbor))
-  //   {
-  //     s.push(neighbor);
-  //   }
-  // }
+    public String toString()
+    {
+      return "("+ x + "," + y + ") " + value + " [" + direction.name() + "]";
+    }
+  }
+
+  public class Path
+  {
+    private Coordinate start;
+    private ArrayList<Direction> path;
+
+    public Path(Coordinate start)
+    {
+      this.start = start;
+      this.path = new ArrayList<Direction>();
+    }
+
+    public Coordinate getStart()
+    {
+      return start;
+    }
+
+    public Boolean addStep(Direction d)
+    {
+      return path.add(d);
+    }
+    public void addStep(int index, Direction d)
+    {
+      path.add(index, d);
+    }
+
+    public ArrayList<Direction> getPath()
+    {
+      return path;
+    }
+
+    public Boolean verifyPath()
+    {
+      Coordinate c = new Coordinate(start.x, start.y);
+      Iterator<Direction> iter = path.iterator();
+      while (iter.hasNext())
+      {
+        if (!verifyCoordRange(c))
+        {
+          System.out.println("ERROR - Invalid path with coord : " + c.toString());
+          return false;
+        }
+        takeStep(iter.next(), c, false);
+      }
+      return true;
+    }
+  }
+
+  public Boolean addPath(Path p)
+  {
+    if (p == null)
+    {
+      System.out.println("ERROR - Cannot add null path in addPath()");
+      return false;
+    }
+    if (!p.verifyPath())
+    {
+      System.out.println("ERROR - Cannot add invalid path in addPath()");
+      return false;
+    }
+    Coordinate c = new Coordinate (p.getStart().x, p.getStart().y);
+    Iterator<Direction> iter = p.getPath().iterator();
+
+    while (iter.hasNext())
+    {
+      // Get ArrayList handle of existing paths on this coordinate
+      if (paths.get(coordinates[c.x][c.y]) == null)
+      {
+        System.out.println("ERROR - Corrupted path map or invalid coordinate : " + c.toString());
+        return false;
+      }
+      ArrayList<Path> list = paths.get(coordinates[c.x][c.y]);
+      // Check if current path is already in this coordinate
+      if (!list.contains(p))
+      {
+        // If we aren't able to add this path
+        if (!list.add(p))
+        {
+          System.out.println("ERROR - Unable to add new path on : " + c.toString());
+          return false;
+        }
+      }
+      // Update coordinate based on path
+      takeStep(iter.next(), c, false);
+    }
+    return true;
+  }
+
+  private void takeStep(Direction d, Coordinate coord, Boolean reverse)
+  {
+    switch (d)
+    {
+      case E:
+        coord.x += reverse ? -1 : 1;
+        break;
+      case W:
+        coord.x += reverse ? 1 : -1;
+        break;
+      case S:
+        coord.y += reverse ? -1 : 1;
+        break;
+      case N:
+        coord.y += reverse ? 1 : -1;
+        break;
+      case SE:
+        coord.x += reverse ? -1 : 1;
+        coord.y += reverse ? -1 : 1;
+        break;
+      case SW:
+        coord.x += reverse ? 1 : -1;
+        coord.y += reverse ? -1 : 1;
+        break;
+      case NE:
+        coord.x += reverse ? -1 : 1;
+        coord.y += reverse ? 1 : -1;
+        break;
+      case NW:
+        coord.x += reverse ? 1 : -1;
+        coord.y += reverse ? 1 : -1;
+        break;
+      default:
+        break;
+    }
+    return;
+  }
+
+  private Path findShortestPath(Coordinate start, Coordinate end)
+  {
+    if (start == null || end == null)
+    {
+      return null;
+    }
+    if (!verifyCoordRange(start) || !verifyCoordRange(end))
+    {
+      return null;
+    }
+    System.out.println("Start : " + start.toString() + " => End : " + end.toString());
+    // Initialize min_heap with override that compares CoordNodes
+    PriorityQueue<CoordNode> min_heap = new PriorityQueue<CoordNode>(100, new Comparator<CoordNode>()
+    {
+      @Override
+      public int compare(CoordNode a, CoordNode b) {
+        return (int)(a.value - b.value);
+      }
+    });
+
+    // Initialize visited grid
+    CoordNode[][] v_grid = new CoordNode[width][height];
+    for (int i = 0; i < width; i++)
+    {
+      for (int j = 0; j < height; j++)
+      {
+        v_grid[i][j] = new CoordNode(coordinates[i][j]);
+      }
+    }
+    // Start min_heap with start location
+    min_heap.add(v_grid[start.x][start.y]);
+
+    int x;
+    int y;
+
+    while (min_heap.peek() != null)
+    {
+      CoordNode c = min_heap.poll();
+      x = c.x;
+      y = c.y;
+
+      // System.out.println("c.toString() " + c.toString());
+      // System.out.println("v_grid[x][y] " + v_grid[x][y]);
+      // System.out.println(Arrays.toString(min_heap.toArray()));
+
+      // Have we visited this node already? Only continue if our path
+      // is the cheapest path on this node.
+      if (v_grid[x][y].value > 0.0 && v_grid[x][y].value > c.value)
+      {
+        v_grid[x][y].value = c.value;
+        v_grid[x][y].direction = c.direction;
+      }
+      else if (v_grid[x][y].value > 0.0)
+      {
+        continue;
+      }
+
+      // Update V grid with current node's value and direction
+      v_grid[x][y].value = c.value;
+      v_grid[x][y].direction = c.direction;
+
+      // Got to where we needed. The shortest path is found by traversing
+      // the directions to get here backwards
+      if (x == end.x && y == end.y)
+      {
+        break;
+      }
+
+      // If we get here, we need to keep going, so attempt to go in every
+      // direction
+      Double new_val;
+      if (verifyCoordRange(x + 1, y))
+      {
+        // Get travel time for the next node then update the next tile's value
+        // <next tile cheapest> = <cheapest cost to get here> + <cost to get to next tile>
+        new_val = v_grid[x][y].value + getTile(x + 1, y).getTravelTime();
+        // Update direction taken and add to heap
+        min_heap.add(new CoordNode(x + 1, y, new_val, Direction.E));
+      }
+      if (verifyCoordRange(x - 1, y))
+      {
+        new_val = v_grid[x][y].value + getTile(x - 1, y).getTravelTime();
+        min_heap.add(new CoordNode(x - 1, y, new_val, Direction.W));
+      }
+      if (verifyCoordRange(x, y + 1))
+      {
+        new_val = v_grid[x][y].value + getTile(x, y + 1).getTravelTime();
+        min_heap.add(new CoordNode(x, y + 1, new_val, Direction.S));
+      }
+      if (verifyCoordRange(x, y - 1))
+      {
+        new_val = v_grid[x][y].value + getTile(x, y - 1).getTravelTime();
+        min_heap.add(new CoordNode(x, y - 1, new_val, Direction.N));
+      }
+      // DO DIAGONALS
+      if (verifyCoordRange(x + 1, y + 1))
+      {
+        new_val = v_grid[x][y].value + getTile(x + 1, y + 1).getTravelTime() * hypotenuse;
+        min_heap.add(new CoordNode(x + 1, y + 1, new_val, Direction.SE));
+      }
+      if (verifyCoordRange(x + 1, y - 1))
+      {
+        new_val = v_grid[x][y].value + getTile(x + 1, y - 1).getTravelTime() * hypotenuse;
+        min_heap.add(new CoordNode(x + 1, y - 1, new_val, Direction.NE));
+      }
+      if (verifyCoordRange(x - 1, y + 1))
+      {
+        new_val = v_grid[x][y].value + getTile(x - 1, y + 1).getTravelTime() * hypotenuse;
+        min_heap.add(new CoordNode(x - 1, y + 1, new_val, Direction.SW));
+      }
+      if (verifyCoordRange(x - 1, y - 1))
+      {
+        new_val = v_grid[x][y].value + getTile(x - 1, y - 1).getTravelTime() * hypotenuse;
+        min_heap.add(new CoordNode(x - 1, y - 1, new_val, Direction.NW));
+      }
+    }
+
+    // Start from the end tile and reverse traverse to create the path
+    Path path = new Path(start);
+    Coordinate coord = new Coordinate(end.x, end.y);
+    // x = end.x;
+    // y = end.y;
+    System.out.println("Value of path found = " + v_grid[end.x][end.y].value);
+    while (!(coord.x == start.x && coord.y == start.y) && verifyCoordRange(coord))
+    {
+      Direction step = v_grid[coord.x][coord.y].direction;
+      path.addStep(0, step);
+      takeStep(step, coord, true);
+    }
+    return path;
+  }
+
+  // Send the given population along the path, updating the Tiles
+  private void travelPath(Path path, Population pop)
+  {
+    if (path == null)
+    {
+      System.out.println("ERROR - Invalid path on travelPath()");
+      return;
+    }
+    if (pop == null)
+    {
+      System.out.println("ERROR - Invalid pop on travelPath()");
+      return;
+    }
+
+    int pop_num = pop.getPopulation();
+    Iterator<Direction> iter = path.getPath().iterator();
+    Coordinate coord = path.getStart();
+    Direction dir;
+    Tile tile;
+
+    // Iterate through tiles based on directions in the path
+    while (iter.hasNext() && verifyCoordRange(coord))
+    {
+      tile = getTile(coord);
+      if (tile == null)
+      {
+        System.out.println("ERROR - Invalid tile on travelPath() + " + coord.toString());
+        break;
+      }
+      // Update Tile's pop traveled
+      tile.migrate(pop_num);
+      // Move coordinate based on direction in path
+      dir = iter.next();
+      takeStep(dir, coord, false);
+    }
+    return;
+  }
 
   public void update()
   {
@@ -463,6 +789,57 @@ public class TileManager
     tile.printTile();
     east_tile.printTile();
     // p2.pushCreature()
+
+    // Test shortest path algorithm
+    System.out.println("===== BEGIN SHORTEST PATH TEST =====");
+    int n_x_n = 50;
+    TileManager manager_2 = new TileManager(n_x_n, n_x_n, "shortest_path.png");
+    // The construction of the map where G is grassland and M is mountain.
+    // G G G G G
+    // M M M G G
+    // G M G G M
+    // G M G M M
+    // G G G G G
+    Path man_2_path = manager_2.findShortestPath(new Coordinate(0,0), new Coordinate(49,49));
+    System.out.println("Path len  = " + man_2_path.getPath().size());
+    Iterator<Direction> iter = man_2_path.getPath().iterator();
+    while (iter.hasNext())
+    {
+      System.out.print(iter.next() + " ");
+    } System.out.println("\n");
+
+    manager_2.travelPath(man_2_path, p);
+    man_2_path = manager_2.findShortestPath(new Coordinate(0,0), new Coordinate(49,49));
+    System.out.println("Path len  = " + man_2_path.getPath().size());
+    iter = man_2_path.getPath().iterator();
+    while (iter.hasNext())
+    {
+      System.out.print(iter.next() + " ");
+    } System.out.println("\n");
+
+    manager_2.travelPath(man_2_path, p);
+    manager_2.travelPath(man_2_path, p);
+    manager_2.travelPath(man_2_path, p);
+    manager_2.travelPath(man_2_path, p);
+    man_2_path = manager_2.findShortestPath(new Coordinate(0,0), new Coordinate(49,49));
+    System.out.println("Path len  = " + man_2_path.getPath().size());
+    iter = man_2_path.getPath().iterator();
+    while (iter.hasNext())
+    {
+      System.out.print(iter.next() + " ");
+    } System.out.println("\n");
+
+    System.out.println(man_2_path.verifyPath());
+    System.out.println(man_2_path.verifyPath());
+    System.out.println(manager_2.addPath(man_2_path));
+
+    man_2_path = manager_2.findShortestPath(new Coordinate(20,10), new Coordinate(49,49));
+    System.out.println("Path len  = " + man_2_path.getPath().size());
+    iter = man_2_path.getPath().iterator();
+    while (iter.hasNext())
+    {
+      System.out.print(iter.next() + " ");
+    } System.out.println("\n");
 
     System.out.println("TESTS PASSED : [" + passes + "/7]");
   }
