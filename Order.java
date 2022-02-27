@@ -1,5 +1,8 @@
 import java.util.*;
 
+import org.junit.Test;
+import static org.junit.Assert.assertEquals;
+
 public class Order
 {
   // Order types
@@ -55,6 +58,7 @@ public class Order
   private Population population;
   private Resource resource;
   private Occupation occupation;
+  private Occupation filter;
   private int resource_quantity;
 
   // Case 1 : MOVE -> POPULATION -> TILE
@@ -100,6 +104,25 @@ public class Order
     this.targetTile = null;
     // Item being used
     this.occupation = o;
+    this.filter = null;
+    this.resource_quantity = quant;
+    // Setting types
+    this.action = Actions.MOD;
+    this.item = Item.POPULATION;
+    this.target = Target.TILE;
+  }
+
+  // Case 6.5 : State -> Mod -> Creature -> Tile
+  public Order(State commander, int priority, Coordinate origin, Occupation old_o, Occupation new_o, int quant)
+  {
+    initPriority(priority);
+    // Source and dest content
+    this.originState = commander;
+    this.originTile = origin;
+    this.targetTile = null;
+    // Item being used
+    this.occupation = new_o;
+    this.filter = old_o;
     this.resource_quantity = quant;
     // Setting types
     this.action = Actions.MOD;
@@ -142,6 +165,11 @@ public class Order
   public Occupation getOccupation()
   {
     return occupation;
+  }
+
+  public Occupation getOldOcc()
+  {
+    return filter;
   }
 
   public Resource getResource()

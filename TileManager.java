@@ -340,10 +340,18 @@ public class TileManager
         // Get Occupation we're trying to generate
         Occupation new_o = o.getOccupation();
         int quant = o.getQuantity();
-        if (new_o != null || quant < 1)
+        if (!(new_o == null || quant < 1))
         {
+          int status;
           // Farm off handling to the Tile itself then examine the status returned
-          int status = origin_t.processOccupationOrder(new_o, quant);
+          if (o.getOldOcc() == null)
+          {
+            status = origin_t.processOccupationOrder(new_o, quant);
+          }
+          else
+          {
+            status = origin_t.processOccupationOrder(o.getOldOcc(), new_o, quant);
+          }
           if (status > 0)
           {
             System.out.println("WARNING : Failed to generate " + status + " / " + quant + " " + new_o.name());
