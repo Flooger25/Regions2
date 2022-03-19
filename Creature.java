@@ -1,8 +1,12 @@
 import java.util.*;
 import java.lang.Math;
 
-// Combinations
-// Race + Occupation
+// JUnit testing infrastructure
+import org.junit.Test;
+import static org.junit.Assert.assertEquals;
+import org.junit.runner.JUnitCore;
+import org.junit.runner.Result;
+import org.junit.runner.notification.Failure;
 
 public class Creature
 {
@@ -288,5 +292,43 @@ public class Creature
     // System.out.println(n + " => " + new_quantity);
 
     return new_quantity;
+  }
+
+  public static class CreatureTests
+  {
+    private final Creature creature = new Creature(Race.HUMAN);
+    @Test
+    public void test1()
+    {
+      assertEquals(0, creature.getWealth());
+    }
+  }
+
+  public static void main(String[] args)
+  {
+    Boolean test = false;
+    // Make sure a 'test' argument was provided. If it wasn't, then we
+    //  will not utilize the JUnit testing infrastructure
+    for (int index = 0; index < args.length; ++index)
+    {
+      if (args[index].equals("test"))
+      {
+        test = true;
+        break;
+      }
+    }
+    // Use JUnit tests, otherwise do anything else
+    if (test)
+    {
+      JUnitCore JUC = new JUnitCore();
+      Result result = JUC.runClasses(CreatureTests.class);
+
+      for (Failure failure : result.getFailures()) {
+        System.out.println(failure.toString());
+      }
+      System.out.println(result.wasSuccessful());
+    }
+
+    System.out.println("EDDIE");
   }
 }
