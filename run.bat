@@ -1,11 +1,11 @@
 echo OFF
 
 if "%1%" == "" (
-    java -classpath "C:\Users\Flooger\Documents\D&D\Regions2" Panel
+    java -classpath bin Panel
 ) else (
     if "%2%" == "test" (
-        java -classpath "C:\Users\Flooger\Documents\D&D\Regions2;C:\Program Files\Java\junit4.10\junit-4.10.jar" %1 "test"
+        java -classpath "bin;C:\Program Files\Java\junit4.10\junit-4.10.jar" %1 "test"
     ) else (
-        java -classpath "C:\Users\Flooger\Documents\D&D\Regions2" %1
+        java -classpath bin %1
     )
 )
