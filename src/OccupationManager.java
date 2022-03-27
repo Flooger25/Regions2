@@ -135,6 +135,14 @@ public class OccupationManager
         put(Occupation.MILLER, 3);
         put(Occupation.WOODCRAFTER, 1);
       }});
+      put(Occupation.FARMER, new Hashtable<Occupation, Integer>()
+      {{
+        put(Occupation.LABORER, 1);
+        put(Occupation.MINER, 2);
+        put(Occupation.MASON, 1);
+        put(Occupation.MILLER, 3);
+        put(Occupation.WOODCRAFTER, 1);
+      }});
     }};
 
   private Occupation type;
@@ -204,7 +212,7 @@ public class OccupationManager
     return harvested;
   }
 
-  // Check if going from Occupation from to Occupation to
+  // Check if going from Occupation 'src' to Occupation 'dest'
   //  is a valid conversion
   public Boolean isValidConversion(Occupation dest, Occupation src)
   {

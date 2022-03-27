@@ -142,6 +142,23 @@ public class Tile
         put(Resource.CHARCOAL, 500.0);
       }});
     }};
+  
+  // Limit of how many non-harvested resources can be created by
+  //  one Creature.
+  // NOTE : Whatever number is given is multiplied by the
+  //  infrastructure level.
+  public static final Map<Resource, Integer>
+    recipe_limit = new Hashtable<Resource, Integer>()
+    {{
+      // SECONDARY RESOURCES
+      put(Resource.LUMBER, 1500);
+      put(Resource.CHARCOAL, 500000);
+      put(Resource.BRICK, 1000);
+      // COMPLETED PRODUCTS
+      put(Resource.BREAD, 2000);
+      put(Resource.WEAPONS, 100);
+      put(Resource.ARMOR, 20);
+    }};
 
   public static final int max_infrastructure = 10;
 
@@ -165,6 +182,8 @@ public class Tile
   private Dictionary<Resource, Integer> resources;
   private Map<Direction, Tile> neighbors;
   private Population pop;
+
+  private Policy tile_policy;
 
   public Tile(TileType type, Coordinate c)
   {
@@ -192,6 +211,7 @@ public class Tile
   {
     neighbors = new Hashtable<Direction, Tile>();
     resources = new Hashtable<Resource, Integer>();
+    tile_policy = new Policy();
     instantiate_resources(provide_color);
   }
 
@@ -226,6 +246,11 @@ public class Tile
     }
     // Inject 0 copper pieces
     resources.put(Resource.CP, 0);
+  }
+
+  public Policy getPolicy()
+  {
+    return tile_policy;
   }
 
   private TileType getTypeFromColor(Color color)
@@ -286,18 +311,23 @@ public class Tile
 
   public int getResourceQuantity(Resource r)
   {
-    return resources.get(r);
+    if (resources.get(r) != null)
+    {
+      return resources.get(r);
+    }
+    // This resource doesn't exist here, so return 0
+    return 0;
   }
 
+  // Extract a Resource 'r' and return the amount extracted
   public int extractResource(Resource r, int quantity)
   {
-    int num_available;
+    int num_available = getResourceQuantity(r);
     // This resource doesn't exist here, so return 0
-    if (resources.get(r) == null)
+    if (num_available == 0)
     {
       return 0;
     }
-    num_available = resources.get(r);
     // We're extracting a quantity less than we have, so update the remaining
     if (quantity < num_available)
     {
@@ -305,12 +335,16 @@ public class Tile
       return quantity;
     }
     // Values are the same, so remove the resource
-    else if (quantity == num_available)
+    // OR
+    // We've been asked to extract more than we have, so just remove the
+    //  resource and return what we did extract
+    else if (quantity >= num_available)
     {
       resources.remove(r);
       return num_available;
     }
-    return 0;
+    // Shouldn't get here
+    return -1;
   }
 
   public void addResource(Resource r, int quantity)
@@ -461,7 +495,7 @@ public class Tile
   // 2. Create secondary resources based on primary
   // 3. Attempt to fulfill demands for final products
   // 4. Return status on any unfulfilled requests
-  private void harvest_resources()
+  private void harvest_resources(Map<Occupation, Integer> labor)
   {
     // Policy for primary resources for harvesting
     Map<Occupation, Map<Resource, Double>> harvester = o_manager.getHarvestPolicy();
@@ -478,6 +512,12 @@ public class Tile
       //  get some primary resources harvested
       if (harvester.get(o) != null && o_manager.base_harvest_rates.get(o) != null)
       {
+        // Add number of laborers assigned to this harvesting Occupation
+        // NOTE : Laborers can ONLY be used for harvesting
+        if (labor.get(o) != null)
+        {
+          n_multiplier += labor.get(o);
+        }
         // Verify this occupation matches our tile type
         // 1. First get the resources this occupation cares about
         // 2. Check that the tile type the resource needs is the current tile
@@ -723,21 +763,167 @@ public class Tile
     return n - leftover;
   }
 
-  // To update the Tile we perform the following
-  // 1. Update population based on tax rate and infrastructure
-  // 2. Update the infrastructure and/or pay for maintenance
-  public void update()
+  // Calculate how much food we can generate given the existing
+  // Farmers, Millers, and the pool of available laborers.
+  //
+  // If we don't have enough laborers to achieve the job, then other
+  // things happen...
+  //
+  // Return a map of the number of laborers assigned to each
+  // Occupation for us to harvest the best combination of resources
+  private Map<Occupation, Integer> calculateFoodGeneration()
   {
+    Occupation MILLER = Occupation.MILLER;
+    Occupation FARMER = Occupation.FARMER;
+    // Determine if there's enough food available
+    int needed_food = pop.getPopulation();
+    int num_wheat = getResourceQuantity(Resource.WHEAT);
+    int num_bread = getResourceQuantity(Resource.BREAD);
+    // Worker pool
+    int farmers = pop.queryNumOfOccupation(FARMER);
+    int millers = pop.queryNumOfOccupation(MILLER);
+    int laborers = pop.queryNumOfOccupation(Occupation.LABORER);
+    // Y BREAD <= X WHEAT
+    int wheat_to_bread = recipes.get(Resource.BREAD).get(Resource.WHEAT).intValue();
+    // Perform a mock harvest to get how much wheat would be harvested per worker
+    Map<Resource, Integer> mock_wheat = o_manager.performHarvest(FARMER, infrastructure);
+    int farmable_wheat = 0;
+    if (mock_wheat != null)
+    {
+      farmable_wheat = mock_wheat.get(Resource.WHEAT);
+    }
+
+    int expected_food = 0;
+    Map<Occupation, Integer> labor_assignment = new Hashtable<Occupation, Integer>()
+    {{
+      put(FARMER, 0);
+      put(MILLER, 0);
+      put(Occupation.LABORER, 0);
+    }};
+    // Loop until we find the correct arrangement of laborers
+    while (expected_food < needed_food && laborers > 0)
+    {
+      // Example:
+      // 2 farmers, 2 millers, 10 laborers, need 5000 food
+      // 50 wheat, 20 bread
+      // 20 + min(2 * 2000, 50 + 2 * 8000)[4000] = 4020
+      int max_usable_bread = millers * wheat_to_bread * recipe_limit.get(Resource.BREAD);
+      int max_possible_wheat = num_wheat + (farmers * farmable_wheat);
+      expected_food =
+        num_bread +
+        Math.min(max_usable_bread, max_possible_wheat);
+      // Really only needed for the first iteration
+      if (expected_food >= needed_food)
+      {
+        break;
+      }
+      // Determine if we need more millers or farmers.
+      // Take from laborer pool.
+      // Case 1 : More millers
+      if (max_usable_bread < max_possible_wheat)
+      {
+        labor_assignment.put(MILLER, labor_assignment.get(MILLER) + 1);
+        millers += 1;
+      }
+      // Case 2 : More farmers
+      else
+      {
+        labor_assignment.put(FARMER, labor_assignment.get(FARMER) + 1);
+        farmers += 1;
+      }
+      laborers -= 1;
+    }
+    // No laborers left AND we still don't have enough food. Hack in the
+    // quantity of food we need into the third Map entry
+    // TODO - Find a better way to do this
+    if (laborers == 0 && expected_food < needed_food)
+    {
+      labor_assignment.put(Occupation.LABORER, needed_food -= expected_food);
+    }
+    return labor_assignment;
+  }
+
+  // 1. Determine if we have enough food or will produce enough on top
+  //  - if (millers + farmers) are enough, move on
+  //  - if (millers + farmers + laborers) are enough, move on
+  //  - Regardless, post the Demand of wheat/bread
+  // 2. Harvest resources
+  // 3. If we still need food:
+  //  - if (stateless), start changing occupancy
+  //  - else (state):
+  //   - if (can convert?), start changing occupancy
+  //   - else (cannot convert), let State take care of Demand
+  //
+  public void update(Policy policy)
+  {
+    if (policy == null)
+    {
+      System.out.println("ERROR - No policy provided!");
+      return;
+    }
     // Degrade the roads
     pop_traveled *= 0.8;
     if (pop_traveled < 1)
     {
       pop_traveled = 1;
     }
-    // First collect resources
-    harvest_resources();
+    // [1] Assign laborers
+    Map<Occupation, Integer> labor_assignment = calculateFoodGeneration();
+    // [2] Harvest resources
+    harvest_resources(labor_assignment);
+    // Consume the food
+    int total_pop = pop.getPopulation();
+    System.out.println("EDDIE - Consuming " + total_pop + " / " + getResourceQuantity(Resource.BREAD) + " food!");
+    int consumed_food = extractResource(Resource.BREAD, total_pop);
+    // We didn't extract enough food to meet the needs of the whole population,
+    // therefore we need to take further measures.
+    // Need more laborers! Or better yet, we need more food
+    if (consumed_food < total_pop)
+    {
+      int food_demand = total_pop - consumed_food;
+      System.out.println("WARNING - Need " + food_demand + " food!");
+      // Case 1 : We're owned by a State
+      if (policy.hasState() && !policy.getLockOccupation())
+      {
+        // Create Demand and publish to Policy
+        policy.addDemand(new Demand(Resource.WHEAT, food_demand));
+        policy.addDemand(new Demand(Resource.BREAD, food_demand));
+      }
+      // Case 2 : We're either independent of a State or our State
+      //  has allowed us to change Occupations on our own
+      else
+      {
+        // Change Occupations to support having enough food next update
+        if (policy.getOccFrom() != null)// && policy.getOccTo() != null)
+        {
+          ArrayList<Occupation> from = policy.getOccFrom();
+          // ArrayList<Occupation> to = p.getOccTo();
+          // Loop over acceptable occupations we're allowed to change
+          for (int i = 0; i < from.size(); i++)
+          {
+            // Create and process an internal Occupation Order
+            if (getResourceQuantity(Resource.WHEAT) > getResourceQuantity(Resource.BREAD))
+            {
+              if (processOccupationOrder(from.get(i),
+                                         Occupation.MILLER,
+                                         (int)(food_demand / recipe_limit.get(Resource.BREAD)) + 1) > 0 )
+              {
+                break;
+              }
+            }
+            else if (processOccupationOrder(from.get(i),
+                                            Occupation.FARMER,
+                                            (int)(food_demand / o_manager.base_harvest_rates.get(Occupation.FARMER).get(Resource.WHEAT)) + 1) > 0 )
+            {
+              break;
+            }
+          }
+        }
+      }
+    }
     // Second, update population and collect taxes
-    int cp = pop.update(tax_rate, infrastructure);
+    System.out.println("Eddie tax = " + policy.getTaxRate());
+    int cp = pop.update(policy.getTaxRate(), infrastructure);
     // Base check to make sure the CP resources exists
     if (resources.get(Resource.CP) == null)
     {
@@ -774,6 +960,15 @@ public class Tile
       resources.put(Resource.CP, 0);
     }
   }
+
+  // To update the Tile we perform the following
+  // 1. Update population based on tax rate and infrastructure
+  // 2. Update the infrastructure and/or pay for maintenance
+  public void update()
+  {
+    update(tile_policy);
+  }
+
   // Just test stuff
   public static void main(String[] args)
   {
@@ -857,17 +1052,27 @@ public class Tile
     tile.addResource(Resource.CHARCOAL, 1000);
     tile.printTile();
 
-    for (int i = 0; i < 5; i++)
-    {
-      tile.update();
-      tile.printTile();
-    }
-    tile.addResource(Resource.CHARCOAL, 1000);
     tile.update();
     tile.printTile();
-    System.out.println(tile.getTravelTime());
-    tile.migrate(5900);
-    System.out.println(tile.getTravelTime());
+    System.out.println("Adding policy Occupations");
+    tile.getPolicy().getOccFrom().add(Occupation.ARMORER);
+    tile.getPolicy().getOccFrom().add(Occupation.WOODCRAFTER);
+    tile.update();
+    tile.printTile();
+
+    for (int i = 0; i < 5; i++)
+    {
+      System.out.println("UPDATING...");
+      tile.update();
+      System.out.println("PRINTING...");
+      tile.printTile();
+    }
+    // tile.addResource(Resource.CHARCOAL, 1000);
+    // tile.update();
+    // tile.printTile();
+    // System.out.println(tile.getTravelTime());
+    // tile.migrate(5900);
+    // System.out.println(tile.getTravelTime());
 
     System.out.println("TESTS PASSED : [" + passes + "/3]");
   }

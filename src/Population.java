@@ -140,6 +140,32 @@ public class Population
     }
     return found;
   }
+
+  // Find number of instances of a particular Occupation
+  public int queryNumOfOccupation(Occupation o)
+  {
+    if (o == null)
+    {
+      System.out.println("ERROR - Invalid Occupation in queryNumOfOccupation().");
+      return -1;
+    }
+    int found = 0;
+    Creature c;
+    for (Map.Entry<Creature, Integer> entry : creatures.entrySet())
+    {
+      if (entry != null)
+      {
+        c = entry.getKey();
+        // Found a creature with the same occupation, so add it to the map
+        if (c.getOccupation() == o)
+        {
+          found += entry.getValue();
+        }
+      }
+    }
+    return found;
+  }
+
   // Return a creature which is considered 'equal' to the queried
   private Creature fetchCreature(Creature query)
   {

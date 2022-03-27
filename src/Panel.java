@@ -131,6 +131,18 @@ public class Panel extends JPanel implements ActionListener
         {
           g.setColor(tm.getTile(coordinates[x][y]).getTileColor());
         }
+        else if (map == MapType.STATE)
+        {
+          // A no-state Tile is defaulted to white
+          if (tm.getState(coordinates[x][y]) == null)
+          {
+            g.setColor(Color.WHITE);
+          }
+          else
+          {
+            g.setColor(tm.getState(coordinates[x][y]).getColor());
+          }
+        }
         else
         {
           g.setColor(tm.getTile(coordinates[x][y]).getColor());

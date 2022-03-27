@@ -92,6 +92,15 @@ public class TileManager
           Color color = new Color(pixel, true);
           // Create new tile based off colors
           map.put(c, new Tile(color, c));
+          // TODO - Remove DEBUG
+          if (i == 23 && j == 9)
+          {
+            System.out.println("\n\n EDDIE adding i==23 & j==9");
+            Tile t = map.get(c);
+            t.getPopulation().pushCreature(new Creature(Creature.Race.HUMAN, Occupation.FARMER), 1000);
+            t.setAutoUpgrade(true);
+            t.addResource(Resource.CP, 1000);
+          }
         }
       }
     }
@@ -229,7 +238,7 @@ public class TileManager
     // Assume 'c' is null here as well
     if (s == null)
     {
-      s = new State(rand.nextInt(), this);
+      s = new State(null, rand.nextInt(), this);
       c = new Coordinate(rand.nextInt(width), rand.nextInt(height));
       while (getState(c) != null)
       {
@@ -753,7 +762,32 @@ public class TileManager
   public void update()
   {
     System.out.println("-------------------------------");
-    // 1 - Receive all Orders from States
+    // 1 - Update all Tiles as independent entities
+    for (int i = 0; i < width; i++)
+    {
+      for (int j = 0; j < height; j++)
+      {
+        if (coordinates[i][j] != null)
+        {
+          Coordinate coord = coordinates[i][j];
+          // Case 1 : Tile has no government
+          if (states.get(coord) == null)
+          {
+            map.get(coord).update();
+          }
+          // Case 2 : A State owns the Tile
+          else
+          {
+            State s = states.get(coord);
+            map.get(coord).update(s.getPolicy());
+          }
+        }
+      }
+    }
+    // 2 - Stream important events to respective states
+    // 2.1 - Each state processes list of Demands and divys up where
+    //       to send resources and such
+    // 3 - Receive all Orders from States
     LinkedList<Order> super_orders = new LinkedList<Order>();
     for (Map.Entry<Coordinate, State> entry : states.entrySet())
     {
@@ -764,7 +798,7 @@ public class TileManager
         super_orders.addLast(Orders.pop());
       }
     }
-    // 2 - Process commands in priority order. 1, 2, etc.
+    // 4 - Process commands in priority order. 1, 2, etc.
     for (int i = 1; i <= 5; i++)
     {
       super_orders = processOrderByPriority(i, super_orders);
@@ -775,14 +809,9 @@ public class TileManager
       System.out.println("Adding state");
       addState(null, null);
     }
-    // 3 - Return un-processed orders to their respective origins
-
-    // 4 - Gather resources
-
-    // 5 - Modify population based on resources
-
-    // 6 - Stream important events to respective states
+    // 5 - Return un-processed orders to their respective origins
   }
+
   // Just test stuff
   public static void main(String[] args)
   {
@@ -800,7 +829,7 @@ public class TileManager
     manager.getTile(neighbor_E).printTile();
     // manager.getTile(neighbor_E).printNeighbors();
 
-    State s = new State(1, manager);
+    State s = new State(null, 1, manager);
     manager.consumeTile(s, center);
     manager.printStateCoordinates(s);
     Order move_100_wheat = new Order(s, 1, center, neighbor_E, Resource.WHEAT, 100);

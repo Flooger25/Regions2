@@ -6,12 +6,12 @@ public class State
   // State types
   public enum StateType
   {
-    EMPIRE, KINGDOM, CITYSTATE, REGION
+    CITYSTATE, REGION, DUCHY, KINGDOM, EMPIRE
   }
   // Relationships
   public enum Relationship
   {
-    ALLIANCE, NEUTRAL, WAR
+    ALLIANCE, FRIENDLY, NEUTRAL, RIVALRY, WAR
   }
   public static long uid;
   public static TileManager manager;
@@ -21,9 +21,15 @@ public class State
   private Color color;
   private long balance;
 
-  public State(long uid, TileManager manager)
+  private State parent;
+  private ArrayList<State> children;
+
+  private Policy policy;
+
+  public State(State parent, long uid, TileManager manager)
   {
     this.uid = uid;
+    this.parent = parent;
     Random rand = new Random();
     this.color = new Color(rand.nextInt(256), rand.nextInt(256), rand.nextInt(256));
     this.manager = manager;
@@ -31,6 +37,12 @@ public class State
     this.sub_states = new LinkedList<State>();
     this.diplomacy = new Hashtable<State, Relationship>();
     this.balance = 0;
+    this.policy = new Policy();
+  }
+
+  public Policy getPolicy()
+  {
+    return policy;
   }
 
   public Boolean addSubState(State s)
