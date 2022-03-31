@@ -42,6 +42,25 @@ public class OccupationManager
         put(Resource.FIBERS, 5000);
       }});
     }};
+  
+  // Table of base rates for creating different items. Essentially the maximum
+  // amount of a resource that can be made by an individual of the trade.
+  public static final Map<Resource, Integer>
+    recipe_rates = new Hashtable<Resource, Integer>()
+    {{
+      // SECONDARY RESOURCES
+      put(Resource.LUMBER, 1500);
+      put(Resource.CHARCOAL, 500000);
+      put(Resource.BRICK, 1000);
+      // COMPLETED PRODUCTS
+      put(Resource.BREAD, 2000);
+      put(Resource.WEAPONS, 100);
+      put(Resource.ARMOR, 20);
+    }};
+  
+  // Percentage of how much output a laborer does in creating a resource
+  // relative to their Occupation's counterpart.
+  public static final Double LABORER_RATE = 0.2;
 
   // Table to track how each occupation's resource harvesting is
   //  allocated. Useful if a particular occupation can harvest more than

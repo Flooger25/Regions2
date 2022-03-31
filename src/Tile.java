@@ -142,23 +142,6 @@ public class Tile
         put(Resource.CHARCOAL, 500.0);
       }});
     }};
-  
-  // Limit of how many non-harvested resources can be created by
-  //  one Creature.
-  // NOTE : Whatever number is given is multiplied by the
-  //  infrastructure level.
-  public static final Map<Resource, Integer>
-    recipe_limit = new Hashtable<Resource, Integer>()
-    {{
-      // SECONDARY RESOURCES
-      put(Resource.LUMBER, 1500);
-      put(Resource.CHARCOAL, 500000);
-      put(Resource.BRICK, 1000);
-      // COMPLETED PRODUCTS
-      put(Resource.BREAD, 2000);
-      put(Resource.WEAPONS, 100);
-      put(Resource.ARMOR, 20);
-    }};
 
   public static final int max_infrastructure = 10;
 
@@ -179,7 +162,7 @@ public class Tile
   private Color color;
   private Coordinate coord;
   private OccupationManager o_manager;
-  private Dictionary<Resource, Integer> resources;
+  private Map<Resource, Integer> resources;
   private Map<Direction, Tile> neighbors;
   private Population pop;
 
@@ -304,7 +287,7 @@ public class Tile
     return coord;
   }
 
-  public Dictionary<Resource, Integer> getResources()
+  public Map<Resource, Integer> getResources()
   {
     return resources;
   }
@@ -401,16 +384,16 @@ public class Tile
     }
   }
 
-  // Return enumerated list of resources available in the tile
-  public Enumeration getResourcesAvailable()
-  {
-    if (resources == null)
-    {
-      System.out.println("ERROR - No resources found!");
-      return null;
-    }
-    return resources.keys();
-  }
+  // // Return enumerated list of resources available in the tile
+  // public Enumeration getResourcesAvailable()
+  // {
+  //   if (resources == null)
+  //   {
+  //     System.out.println("ERROR - No resources found!");
+  //     return null;
+  //   }
+  //   return resources.keys();
+  // }
 
   // Wear down the road based on the population that moved.
   // The more creatures traveling in a given route, the easier
@@ -507,16 +490,18 @@ public class Tile
     {
       Creature c = entry.getKey();
       int n_multiplier = entry.getValue();
+      int laborer_multiplier = 0;
       Occupation o = c.getOccupation();
       // This occupation has a harvest policy, therefore we're about to
       //  get some primary resources harvested
       if (harvester.get(o) != null && o_manager.base_harvest_rates.get(o) != null)
       {
         // Add number of laborers assigned to this harvesting Occupation
-        // NOTE : Laborers can ONLY be used for harvesting
+        // NOTE : Laborers can ONLY be used for harvesting and specific secondary
+        //  Occupations.
         if (labor.get(o) != null)
         {
-          n_multiplier += labor.get(o);
+          laborer_multiplier = labor.get(o);
         }
         // Verify this occupation matches our tile type
         // 1. First get the resources this occupation cares about
@@ -553,15 +538,22 @@ public class Tile
           {
             // Add new resources to resource map multiplied by number of
             //  identical workers
-            addResource(new_res.getKey(), n_multiplier * new_res.getValue());
+            Double new_resources = new_res.getValue() * (laborer_multiplier * o_manager.LABORER_RATE + n_multiplier);
+            addResource(new_res.getKey(), new_resources.intValue());
           }
         }
       }
-      // TODO Secondary and ternary resources
       // Handle secondary resources and products based on what resources
       //  are currently available
       else if (process.get(o) != null)
       {
+        // Add number of laborers assigned to this processing Occupation
+        // NOTE : Laborers can ONLY be used for harvesting and specific secondary
+        //  Occupations.
+        if (labor.get(o) != null && o == Occupation.MILLER)
+        {
+          laborer_multiplier = labor.get(o);
+        }
         Map<Resource, Boolean> valid_res = process.get(o);
         // Iterate over every possible resource the given occupation
         //  is allowed to work with
@@ -569,16 +561,16 @@ public class Tile
         {
           // Resource this occupation is allowed to create
           Resource processed = new_res.getKey();
+          System.out.println("EDDIE TODO " + processed.name());
           // Get recipe to create this resource
           if (recipes.get(processed) == null)
           {
             continue;
           }
-          // Verify that our resources in the Tile contain everything
-          //  this recipe needs
+          // The recipe for creating item 'processed'
           Map<Resource, Double> single_recipe = recipes.get(processed);
-          // Whether we're processing a resource into more resources or
-          //  we're creating a final product
+          // Whether all of the needed resources for the recipe were found
+          // or not.
           Boolean criteria_fulfilled = true;
           // Quant is simply the number of input resource iterations we
           //  can extract, rather than the output of the craft.
@@ -627,18 +619,15 @@ public class Tile
           for (Map.Entry<Resource, Double> needed : single_recipe.entrySet())
           {
             // A given resource in the recipe ain't available!
-            if (resources.get(needed.getKey()) == null)
+            if (getResourceQuantity(needed.getKey()) < 1)
             {
               criteria_fulfilled = false;
               break;
             }
-            // Don't have any of the resources!
-            else if (resources.get(needed.getKey()) == 0)
+            // TODO DEBUG
+            if (needed.getKey() == Resource.WHEAT)
             {
-              // Extract to remove from resource list
-              extractResource(needed.getKey(), 1);
-              criteria_fulfilled = false;
-              break;
+              System.out.println("EDDIE TODO 2 " + needed.getValue());
             }
             // Individually needed resource for this recipe
             Double res_needed = needed.getValue() * multiple_quant;
@@ -667,6 +656,11 @@ public class Tile
               {
                 minimum_quant = num_satisfied;
               }
+              // TODO DEBUG
+              if (needed.getKey() == Resource.WHEAT)
+              {
+                System.out.println("EDDIE TODO 3 : " + num_satisfied + " / " + minimum_quant);
+              }
             }
             // Don't have enough of the needed resources
             else
@@ -679,16 +673,37 @@ public class Tile
           //  the amount of items created based on the number of workers available
           //  to do the work to convert.
           // NOTE:
-          //  When we have non-inverted values, such as the example above, the below
+          // 1. When we have non-inverted values, such as the example above, the below
           //  may look like:
           //   2 > 1 * 1 => quant = 1
           //  When we have inverted values, the below may look like
           //   1500 > 1 * 1 => quant = 1
-          if (minimum_quant > n_multiplier * infrastructure)
+          // 2. We also need to keep tabs on the recipe rates we have at our disposal.
+          // For example, if the minimum quant is 50K, the inf is 1, the n multiplier
+          //  is 2, and the rate at which the resource can be made is 1K, we would
+          //  get to the following total number we can make:
+          //    1 * 2 * 1K = 2K, which is a lot less than 50K.
+          // Long story short, we may have the resources to make 50K of something, but
+          //  we only have enough workers to make 2K.
+          // 3. Things get slightly more dicey when bringing in LABORERs to the mix.
+          //  Long story short, for each laborer creating a product, they add
+          //  LABORER_RATE quantity to the resources instead.
+          Double max_quant_by_work =
+            (n_multiplier + laborer_multiplier * o_manager.LABORER_RATE) *  // Number of workers
+            infrastructure *                       // Infrastructure level
+            o_manager.recipe_rates.get(processed); // Rate of resource generation per worker
+
+          if (minimum_quant > max_quant_by_work.intValue())
           {
-            minimum_quant = n_multiplier * infrastructure;
+            minimum_quant = max_quant_by_work.intValue();
           }
           multiple_quant *= minimum_quant;
+
+          // TODO DEBUG
+          if (o == Occupation.MILLER)
+          {
+            System.out.println("EDDIE TODO 5 : " + multiple_quant);
+          }
 
           // Now that we've calculated the number of products we can create,
           //  we can go through and extract + add the needed items.
@@ -798,7 +813,6 @@ public class Tile
     {{
       put(FARMER, 0);
       put(MILLER, 0);
-      put(Occupation.LABORER, 0);
     }};
     // Loop until we find the correct arrangement of laborers
     while (expected_food < needed_food && laborers > 0)
@@ -807,7 +821,7 @@ public class Tile
       // 2 farmers, 2 millers, 10 laborers, need 5000 food
       // 50 wheat, 20 bread
       // 20 + min(2 * 2000, 50 + 2 * 8000)[4000] = 4020
-      int max_usable_bread = millers * wheat_to_bread * recipe_limit.get(Resource.BREAD);
+      int max_usable_bread = millers * wheat_to_bread * o_manager.recipe_rates.get(Resource.BREAD);
       int max_possible_wheat = num_wheat + (farmers * farmable_wheat);
       expected_food =
         num_bread +
@@ -832,13 +846,6 @@ public class Tile
         farmers += 1;
       }
       laborers -= 1;
-    }
-    // No laborers left AND we still don't have enough food. Hack in the
-    // quantity of food we need into the third Map entry
-    // TODO - Find a better way to do this
-    if (laborers == 0 && expected_food < needed_food)
-    {
-      labor_assignment.put(Occupation.LABORER, needed_food -= expected_food);
     }
     return labor_assignment;
   }
@@ -867,14 +874,19 @@ public class Tile
     {
       pop_traveled = 1;
     }
+    // TODO - Degrade food stores
+  
     // [1] Assign laborers
     Map<Occupation, Integer> labor_assignment = calculateFoodGeneration();
+    System.out.println(labor_assignment);
     // [2] Harvest resources
     harvest_resources(labor_assignment);
-    // Consume the food
+    // [3] Consume the food
     int total_pop = pop.getPopulation();
     System.out.println("EDDIE - Consuming " + total_pop + " / " + getResourceQuantity(Resource.BREAD) + " food!");
     int consumed_food = extractResource(Resource.BREAD, total_pop);
+
+    // [4] Change Occupations because we need Farmers or Millers!
     // We didn't extract enough food to meet the needs of the whole population,
     // therefore we need to take further measures.
     // Need more laborers! Or better yet, we need more food
@@ -906,7 +918,7 @@ public class Tile
             {
               if (processOccupationOrder(from.get(i),
                                          Occupation.MILLER,
-                                         (int)(food_demand / recipe_limit.get(Resource.BREAD)) + 1) > 0 )
+                                         (int)(food_demand / o_manager.recipe_rates.get(Resource.BREAD)) + 1) > 0 )
               {
                 break;
               }
@@ -1041,32 +1053,41 @@ public class Tile
     wp.pushCreature(new Creature(Creature.Race.HUMAN, Occupation.WOODCRAFTER), 1);
     wp.pushCreature(new Creature(Creature.Race.HUMAN, Occupation.MILLER), 2);
     wp.pushCreature(new Creature(Creature.Race.HUMAN, Occupation.ARMORER), 2);
+    wp.pushCreature(new Creature(Creature.Race.HUMAN, Occupation.LABORER), 2);
     // wp.pushCreature(new Creature(Creature.Race.HUMAN, Occupation.WOODCRAFTER), 2);
     wp.printPopulation();
     // Absorb the population into the tile
     tile.getPopulation().absorbPopulation(wp);
     tile.setAutoUpgrade(true);
     tile.addResource(Resource.CP, 5000);
-    tile.addResource(Resource.FIBERS, 1000);
-    tile.addResource(Resource.METAL, 1000);
-    tile.addResource(Resource.CHARCOAL, 1000);
+    // tile.addResource(Resource.FIBERS, 1000);
+    // tile.addResource(Resource.METAL, 1000);
+    // tile.addResource(Resource.CHARCOAL, 1000);
     tile.printTile();
 
-    tile.update();
-    tile.printTile();
     System.out.println("Adding policy Occupations");
     tile.getPolicy().getOccFrom().add(Occupation.ARMORER);
     tile.getPolicy().getOccFrom().add(Occupation.WOODCRAFTER);
+
+    tile.update();
+    tile.printTile();
+    // System.out.println("Adding policy Occupations");
+    // tile.getPolicy().getOccFrom().add(Occupation.ARMORER);
+    // tile.getPolicy().getOccFrom().add(Occupation.WOODCRAFTER);
+    // Farmer being added in this update
     tile.update();
     tile.printTile();
 
-    for (int i = 0; i < 5; i++)
-    {
-      System.out.println("UPDATING...");
-      tile.update();
-      System.out.println("PRINTING...");
-      tile.printTile();
-    }
+    tile.update();
+    tile.printTile();
+
+    // for (int i = 0; i < 1; i++)
+    // {
+    //   System.out.println("UPDATING...");
+    //   tile.update();
+    //   System.out.println("PRINTING...");
+    //   tile.printTile();
+    // }
     // tile.addResource(Resource.CHARCOAL, 1000);
     // tile.update();
     // tile.printTile();
