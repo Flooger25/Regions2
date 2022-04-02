@@ -12,6 +12,11 @@ public class Population
   // more deterministic behavior.
   private Boolean randomness_override = false;
 
+  // Rate how how likely a given creature is to change their
+  //  Occupation at any given iteration.
+  // NOTE : The value is represented as 1 / X
+  public static final int EVOLVE_RATE = 100;
+
   public Population()
   {
     this.creatures = new HashMap<Creature, Integer>();
@@ -66,8 +71,8 @@ public class Population
       Occupation o = entry.getKey();
       // Multiply rate by total population => actual number
       Double new_c = entry.getValue() * pop;
-      // if pop = 2100, and rate = 1/1500, we are guaranteed
-      //  1. There is a 2100 - 1500 = 600 => 40% chance of another
+      // if pop = 2100, and rate = 1/1500, we are guaranteed 1.
+      //  There is a 2100 - 1500 = 600 => 40% chance of another
       if (new_c > 0.0)
       {
         int rate = (int)(1.0 / entry.getValue());
@@ -184,6 +189,12 @@ public class Population
   // Return a creature which is considered 'equal' to the queried
   private Creature fetchCreature(Creature query)
   {
+    // If the given query is actually the correct Creature instance (at
+    //  the same memory address), just return the query
+    if (creatures.get(query) != null)
+    {
+      return query;
+    }
     Creature c;
     for (Map.Entry<Creature, Integer> entry : creatures.entrySet())
     {
@@ -432,7 +443,8 @@ public class Population
   }
 
   // Increase or decrease population based on creature-related items
-  //  and tile information
+  //  and tile information. Also supports Occupations changing randomly
+  //  to support micro-evolution.
   public int update(double tax_rate, int inf)
   {
     Map<Creature, Integer> removed = new HashMap<Creature, Integer>();
@@ -449,9 +461,10 @@ public class Population
       c_new_n = c.update(tax_rate, c_n, inf);
       // Track tax collected
       tax_collected += c.getTax() * c_n;
-      // Replace old number with new
+
       if (!randomness_override)
       {
+        // Replace old number with new
         if (c_new_n > 0)
         {
           creatures.put(c, c_new_n);
@@ -463,6 +476,8 @@ public class Population
           tax_collected += c.getWealth();
           removed.put(c, 0);
         }
+        // Evolve the Occupations
+        micro_evolve();
       }
     }
     // Remove creatures queued to be removed
@@ -473,6 +488,53 @@ public class Population
     // System.out.println("tax_collected = " + tax_collected);
 
     return tax_collected;
+  }
+
+  // Helper function that changes Occupations randomly
+  // TODO : Make this support changing multiple Occupations at once.
+  //  Currently there are chicken and egg issues with modifying the same
+  //  Map while iterating over it, hoe ass.
+  public void micro_evolve()
+  {
+    Random r = new Random();
+    // Want to screenshot the creatures list because it's actually
+    //  going to be changing as we iterate over it.
+    int iteration = 0;
+    for (Map.Entry<Creature, Integer> entry : creatures.entrySet())
+    {
+      // We hit the 1 / EVOLVE_RATE case
+      if (r.nextInt(EVOLVE_RATE) == 0)
+      {
+        // Number of this particular creature that will change
+        // => 1 + <100> * (1->1000 / 1000)
+        int num_changed = (int)(1.0 + entry.getValue() * (1.0 / EVOLVE_RATE));
+        // Total possible Occupations we could choose from
+        int occupation_rate = Occupation.values().length;
+        // Occupation we're converting from
+        Occupation occFrom = entry.getKey().getOccupation();
+        // Occupation we're converting too
+        Occupation occTo = null;
+        // Check if we have a valid conversion
+        int attempts = 0;
+        while (!OccupationManager.isValidConversion(occTo, occFrom) && attempts < occupation_rate * occupation_rate)
+        {
+          // If we don't, keep randomly changing Occupations until we get a valid conversion
+          occTo = Occupation.values()[r.nextInt(occupation_rate)];
+          attempts += 1;
+        }
+        // Didn't find a conversion in time, move on with our lives
+        if (attempts == EVOLVE_RATE && !OccupationManager.isValidConversion(occTo, occFrom))
+        {
+          continue;
+        }
+        System.out.println(occFrom.name() + " -> " + occTo.name() + " : " + num_changed);
+        Creature changed = new Creature(entry.getKey().getRace(), occTo);
+        // Push the new Creature onto the map, and pull the old one.
+        pushCreature(changed, num_changed);
+        pullCreature(entry.getKey(), num_changed);
+        break;
+      }
+    }
   }
 
   // Just test stuff

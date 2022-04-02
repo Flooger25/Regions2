@@ -40,8 +40,6 @@ public class TileTest
     }
 
     @Test
-    // @org.junit.runner.Order(1)
-    // @org.junit.jupiter.testmethod.Order(1)
     public void test1_addPopulation()
     {
         // SETUP
@@ -273,6 +271,7 @@ public class TileTest
     }
 
     @Test
+    // TODO - Implement actual starvation logic
     public void test_starvation()
     {
         // SETUP
@@ -294,7 +293,7 @@ public class TileTest
         assertEquals(2 * 6000, tile.getResourceQuantity(Resource.WHEAT));
         assertEquals(3, tile.getResourceQuantity(Resource.BREAD));
         assertEquals(0, policy.getDemands().size());
-        // Things definitely are NOT cash money
+        // Things definitely are NOT cash money. Turn WOODCRAFTER into MILLER
         tile.update();
         // tile.printTile();
         assertEquals(4 * 6000, tile.getResourceQuantity(Resource.WHEAT));

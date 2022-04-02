@@ -90,6 +90,23 @@ public class Policy
         avail_to = new ArrayList<Occupation>();
         avail_from = new ArrayList<Occupation>();
         currentDemands = new ArrayList<Demand>();
+        addDefaultValues();
+    }
+
+    // Populate Policy with acceptable Occupations we're willing to
+    //  use to change into others. The State or Tile may change this
+    //  at any point of course, however, this is just for ease of use.
+    private void addDefaultValues()
+    {
+        avail_from.add(Occupation.HIRELING);
+        avail_from.add(Occupation.LUMBERJACK);
+        avail_from.add(Occupation.MINER);
+        avail_from.add(Occupation.FARMER);
+        avail_from.add(Occupation.MINER);
+        avail_from.add(Occupation.CHARCOALER);
+        avail_from.add(Occupation.MASON);
+        avail_from.add(Occupation.MILLER);
+        avail_from.add(Occupation.WOODCRAFTER);
     }
 
     public Boolean hasState()
@@ -111,12 +128,12 @@ public class Policy
         tax_rate = t;
     }
 
-    ArrayList<Occupation> getOccFrom()
+    public ArrayList<Occupation> getOccFrom()
     {
         return avail_from;
     }
 
-    ArrayList<Occupation> getOccTo()
+    public ArrayList<Occupation> getOccTo()
     {
         return avail_to;
     }

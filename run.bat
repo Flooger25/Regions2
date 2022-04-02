@@ -4,7 +4,7 @@ if "%1%" == "" (
     java -classpath bin Panel
 ) else (
     if "%1%" == "test" (
-        java -classpath "bin;C:\Program Files\Java\junit4.10\junit-4.10.jar" TileTest
+        java -classpath "bin;C:\Program Files\Java\junit4.10\junit-4.10.jar" %2
     ) else (
         if "%2%" == "test" (
             java -classpath "bin;C:\Program Files\Java\junit4.10\junit-4.10.jar" %1 "test"

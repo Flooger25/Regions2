@@ -238,8 +238,12 @@ public class OccupationManager
 
   // Check if going from Occupation 'src' to Occupation 'dest'
   //  is a valid conversion
-  public Boolean isValidConversion(Occupation dest, Occupation src)
+  public static Boolean isValidConversion(Occupation dest, Occupation src)
   {
+    if (dest == null || src == null)
+    {
+      return false;
+    }
     if (occupation_conversion_policy.get(dest) != null)
     {
       if (occupation_conversion_policy.get(dest).get(src) != null)

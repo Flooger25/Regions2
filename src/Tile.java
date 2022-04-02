@@ -595,7 +595,6 @@ public class Tile
         {
           // Resource this occupation is allowed to create
           Resource processed = new_res.getKey();
-          System.out.println("EDDIE TODO " + processed.name());
           // Get recipe to create this resource
           if (recipes.get(processed) == null)
           {
@@ -658,11 +657,6 @@ public class Tile
               criteria_fulfilled = false;
               break;
             }
-            // TODO DEBUG
-            if (needed.getKey() == Resource.WHEAT)
-            {
-              System.out.println("EDDIE TODO 2 " + needed.getValue());
-            }
             // Individually needed resource for this recipe
             Double res_needed = needed.getValue() * multiple_quant;
             // Same resource, but quantity actually available in the Tile
@@ -689,11 +683,6 @@ public class Tile
               if (num_satisfied < minimum_quant)
               {
                 minimum_quant = num_satisfied;
-              }
-              // TODO DEBUG
-              if (needed.getKey() == Resource.WHEAT)
-              {
-                System.out.println("EDDIE TODO 3 : " + num_satisfied + " / " + minimum_quant);
               }
             }
             // Don't have enough of the needed resources
@@ -732,12 +721,6 @@ public class Tile
             minimum_quant = max_quant_by_work.intValue();
           }
           multiple_quant *= minimum_quant;
-
-          // TODO DEBUG
-          if (o == Occupation.MILLER)
-          {
-            System.out.println("EDDIE TODO 5 : " + multiple_quant);
-          }
 
           // Now that we've calculated the number of products we can create,
           //  we can go through and extract + add the needed items.
@@ -918,7 +901,8 @@ public class Tile
   
     // [3] Consume the food
     int total_pop = pop.getPopulation();
-    System.out.println("EDDIE - Consuming " + total_pop + " / " + getResourceQuantity(Resource.BREAD) + " food!");
+    if (total_pop > 0)
+      System.out.println("EDDIE - Consuming " + total_pop + " / " + getResourceQuantity(Resource.BREAD) + " food!");
     int consumed_food = extractResource(Resource.BREAD, total_pop);
 
     // [4] Change Occupations because we need Farmers or Millers!
@@ -977,16 +961,7 @@ public class Tile
       }
     }
     // Second, update population and collect taxes
-    int cp = pop.update(policy.getTaxRate(), infrastructure);
-  
-    // Base check to make sure the CP resources exists
-    if (resources.get(Resource.CP) == null)
-    {
-      resources.put(Resource.CP, 0);
-    }
-    // Once we got here, we need to apply whatever balance we have
-    //  to maintaining or upgrading the infrastructure.
-    cp += resources.get(Resource.CP);
+    int cp = pop.update(policy.getTaxRate(), infrastructure) + getResourceQuantity(Resource.CP);
 
     // NOTE - We can only upgrade infrastructure at a max once per update
     if (auto_upgrade && getCostOfUpgrade() <= cp && infrastructure < 11)
@@ -1002,7 +977,7 @@ public class Tile
     }
     // We cannot pay for maintenance, so we risk the infrastructure
     // decaying.
-    cp = resources.get(Resource.CP);
+    cp = getResourceQuantity(Resource.CP);
     if (cp < 0)
     {
       Random rand = new Random();
