@@ -145,4 +145,9 @@ public class Policy
     {
         currentDemands.add(d);
     }
+
+    public ArrayList<Demand> getDemands()
+    {
+        return currentDemands;
+    }
 }

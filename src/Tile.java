@@ -190,6 +190,18 @@ public class Tile
     initialize(false);
   }
 
+  public Tile(TileType type)
+  {
+    this.type = type;
+    this.coord = new Coordinate(0,0);
+    this.infrastructure = 0;
+    this.pop = new Population();
+    this.o_manager = new OccupationManager();
+    this.neighbors = new Hashtable<Direction, Tile>();
+    this.resources = new Hashtable<Resource, Integer>();
+    this.tile_policy = new Policy();
+  }
+
   private final void initialize(Boolean provide_color)
   {
     neighbors = new Hashtable<Direction, Tile>();
@@ -285,6 +297,11 @@ public class Tile
   public Coordinate getCoordinate()
   {
     return coord;
+  }
+
+  public int getInfrastructureLevel()
+  {
+    return infrastructure;
   }
 
   public Map<Resource, Integer> getResources()
@@ -442,11 +459,22 @@ public class Tile
 
   public int getCostOfMaintenance()
   {
+    // NOTE : Infrastructure of 0 needs no maintenance
     if (infrastructure > 0)
     {
       return (int)(100 * Math.pow(1.2, infrastructure));
     }
     return 0;
+  }
+
+  public Double getTaxRate()
+  {
+    if (tile_policy != null)
+    {
+      return tile_policy.getTaxRate();
+    }
+    System.out.println("ERROR - No policy found in Tile.getTaxRate()!");
+    return 0.0;
   }
 
   public Population getPopulation()
@@ -478,7 +506,7 @@ public class Tile
   // 2. Create secondary resources based on primary
   // 3. Attempt to fulfill demands for final products
   // 4. Return status on any unfulfilled requests
-  private void harvest_resources(Map<Occupation, Integer> labor)
+  public void harvest_resources(Map<Occupation, Integer> labor)
   {
     // Policy for primary resources for harvesting
     Map<Occupation, Map<Resource, Double>> harvester = o_manager.getHarvestPolicy();
@@ -499,9 +527,12 @@ public class Tile
         // Add number of laborers assigned to this harvesting Occupation
         // NOTE : Laborers can ONLY be used for harvesting and specific secondary
         //  Occupations.
-        if (labor.get(o) != null)
+        if (labor != null)
         {
-          laborer_multiplier = labor.get(o);
+          if (labor.get(o) != null)
+          {
+            laborer_multiplier = labor.get(o);
+          }
         }
         // Verify this occupation matches our tile type
         // 1. First get the resources this occupation cares about
@@ -550,9 +581,12 @@ public class Tile
         // Add number of laborers assigned to this processing Occupation
         // NOTE : Laborers can ONLY be used for harvesting and specific secondary
         //  Occupations.
-        if (labor.get(o) != null && o == Occupation.MILLER)
+        if (labor != null)
         {
-          laborer_multiplier = labor.get(o);
+          if (labor.get(o) != null && o == Occupation.MILLER)
+          {
+            laborer_multiplier = labor.get(o);
+          }
         }
         Map<Resource, Boolean> valid_res = process.get(o);
         // Iterate over every possible resource the given occupation
@@ -786,12 +820,12 @@ public class Tile
   //
   // Return a map of the number of laborers assigned to each
   // Occupation for us to harvest the best combination of resources
-  private Map<Occupation, Integer> calculateFoodGeneration()
+  public void calculateFoodGeneration(Map<Occupation, Integer> labor_assignment)
   {
     Occupation MILLER = Occupation.MILLER;
     Occupation FARMER = Occupation.FARMER;
     // Determine if there's enough food available
-    int needed_food = pop.getPopulation();
+    int food_demand = pop.getPopulation();
     int num_wheat = getResourceQuantity(Resource.WHEAT);
     int num_bread = getResourceQuantity(Resource.BREAD);
     // Worker pool
@@ -809,13 +843,8 @@ public class Tile
     }
 
     int expected_food = 0;
-    Map<Occupation, Integer> labor_assignment = new Hashtable<Occupation, Integer>()
-    {{
-      put(FARMER, 0);
-      put(MILLER, 0);
-    }};
     // Loop until we find the correct arrangement of laborers
-    while (expected_food < needed_food && laborers > 0)
+    while (expected_food < food_demand && laborers > 0)
     {
       // Example:
       // 2 farmers, 2 millers, 10 laborers, need 5000 food
@@ -826,8 +855,9 @@ public class Tile
       expected_food =
         num_bread +
         Math.min(max_usable_bread, max_possible_wheat);
+
       // Really only needed for the first iteration
-      if (expected_food >= needed_food)
+      if (expected_food >= food_demand)
       {
         break;
       }
@@ -847,7 +877,6 @@ public class Tile
       }
       laborers -= 1;
     }
-    return labor_assignment;
   }
 
   // 1. Determine if we have enough food or will produce enough on top
@@ -877,10 +906,16 @@ public class Tile
     // TODO - Degrade food stores
   
     // [1] Assign laborers
-    Map<Occupation, Integer> labor_assignment = calculateFoodGeneration();
-    System.out.println(labor_assignment);
+    Map<Occupation, Integer> labor_assignment = new Hashtable<Occupation, Integer>()
+    {{
+      put(Occupation.FARMER, 0);
+      put(Occupation.MILLER, 0);
+    }};
+    calculateFoodGeneration(labor_assignment);
+  
     // [2] Harvest resources
     harvest_resources(labor_assignment);
+  
     // [3] Consume the food
     int total_pop = pop.getPopulation();
     System.out.println("EDDIE - Consuming " + total_pop + " / " + getResourceQuantity(Resource.BREAD) + " food!");
@@ -897,6 +932,7 @@ public class Tile
       // Case 1 : We're owned by a State
       if (policy.hasState() && !policy.getLockOccupation())
       {
+        // TODO - Make accurate numbers
         // Create Demand and publish to Policy
         policy.addDemand(new Demand(Resource.WHEAT, food_demand));
         policy.addDemand(new Demand(Resource.BREAD, food_demand));
@@ -905,6 +941,12 @@ public class Tile
       //  has allowed us to change Occupations on our own
       else
       {
+        if (policy.getGenerateDemands())
+        {
+          // TODO - Make accurate numbers
+          policy.addDemand(new Demand(Resource.BREAD, food_demand));
+          policy.addDemand(new Demand(Resource.WHEAT, food_demand));
+        }
         // Change Occupations to support having enough food next update
         if (policy.getOccFrom() != null)// && policy.getOccTo() != null)
         {
@@ -914,6 +956,7 @@ public class Tile
           for (int i = 0; i < from.size(); i++)
           {
             // Create and process an internal Occupation Order
+            // Attempt to go from 'from.get(i)' to MILLER or FARMER depending on resources
             if (getResourceQuantity(Resource.WHEAT) > getResourceQuantity(Resource.BREAD))
             {
               if (processOccupationOrder(from.get(i),
@@ -934,8 +977,8 @@ public class Tile
       }
     }
     // Second, update population and collect taxes
-    System.out.println("Eddie tax = " + policy.getTaxRate());
     int cp = pop.update(policy.getTaxRate(), infrastructure);
+  
     // Base check to make sure the CP resources exists
     if (resources.get(Resource.CP) == null)
     {

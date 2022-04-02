@@ -162,6 +162,13 @@ public class OccupationManager
         put(Occupation.MILLER, 3);
         put(Occupation.WOODCRAFTER, 1);
       }});
+      put(Occupation.MILLER, new Hashtable<Occupation, Integer>()
+      {{
+        put(Occupation.FARMER, 1);
+        put(Occupation.ARMORER, 1);
+        put(Occupation.MASON, 1);
+        put(Occupation.WOODCRAFTER, 1);
+      }});
     }};
 
   private Occupation type;
@@ -208,7 +215,6 @@ public class OccupationManager
 
   public Map<Resource, Integer> performHarvest(Occupation o, int I)
   {
-    System.out.println("Eddie harvest : " + I);
     if (I < 1 || harvest_policy.get(o) == null || base_harvest_rates.get(o) == null)
     {
       return null;
@@ -227,7 +233,6 @@ public class OccupationManager
       int quantity = (int)( (base_rates.get(r) * entry.getValue() * ((Math.log(I) / Math.log(2)) + 1)) / total_weight);
       harvested.put(r, quantity);
     }
-    System.out.println(harvested);
     return harvested;
   }
 

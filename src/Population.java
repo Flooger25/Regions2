@@ -8,6 +8,10 @@ public class Population
   //  a bunch of instances
   private Map<Creature, Integer> creatures;
 
+  // Overrides random behavior. Intended for unit testing/
+  // more deterministic behavior.
+  private Boolean randomness_override = false;
+
   public Population()
   {
     this.creatures = new HashMap<Creature, Integer>();
@@ -94,6 +98,17 @@ public class Population
       pop += entry.getValue();
     }
     return pop;
+  }
+
+  public void wipeOutPopulation()
+  {
+    creatures = null;
+    creatures = new HashMap<Creature, Integer>();
+  }
+
+  public void setRandomnessOverride(Boolean b)
+  {
+    randomness_override = b;
   }
 
   public void printPopulation()
@@ -435,16 +450,19 @@ public class Population
       // Track tax collected
       tax_collected += c.getTax() * c_n;
       // Replace old number with new
-      if (c_new_n > 0)
+      if (!randomness_override)
       {
-        creatures.put(c, c_new_n);
-      }
-      else
-      {
-        // If the creature dies, just add their wealth to tax collected
-        // TODO - Find a better way to distribute the wealth
-        tax_collected += c.getWealth();
-        removed.put(c, 0);
+        if (c_new_n > 0)
+        {
+          creatures.put(c, c_new_n);
+        }
+        else
+        {
+          // If the creature dies, just add their wealth to tax collected
+          // TODO - Find a better way to distribute the wealth
+          tax_collected += c.getWealth();
+          removed.put(c, 0);
+        }
       }
     }
     // Remove creatures queued to be removed

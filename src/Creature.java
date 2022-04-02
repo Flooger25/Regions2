@@ -72,6 +72,7 @@ public class Creature
       // Citizens
       // put(Occupation.CITIZEN, 1/1.5)
       put(Occupation.HIRELING, 6);
+      put(Occupation.LABORER, 6);
       // Freeholders
       put(Occupation.LUMBERJACK, 30);
       // put(Occupation.MINER, 1/1000);
