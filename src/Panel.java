@@ -180,7 +180,7 @@ public class Panel extends JPanel implements ActionListener
     {
       int x = (event.getX()) / scale;
       int y = (event.getY() - button_height) / scale;
-      System.out.println("Someone just clicked at: " + x + "," + y);
+      // System.out.println("Someone just clicked at: " + x + "," + y);
       Tile tile = tm.getTile(new Coordinate(x, y));
       if (tile != null)
       {

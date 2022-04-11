@@ -107,6 +107,7 @@ public class Policy
         avail_from.add(Occupation.MASON);
         avail_from.add(Occupation.MILLER);
         avail_from.add(Occupation.WOODCRAFTER);
+        avail_from.add(Occupation.ADVENTURER);
     }
 
     public Boolean hasState()

@@ -97,9 +97,11 @@ public class TileManager
           {
             System.out.println("\n\n EDDIE adding i==23 & j==9");
             Tile t = map.get(c);
-            t.getPopulation().pushCreature(new Creature(Creature.Race.HUMAN, Occupation.FARMER), 1000);
+            t.getPopulation().pushCreature(new Creature(Creature.Race.HUMAN, Occupation.FARMER), 990);
+            t.getPopulation().pushCreature(new Creature(Creature.Race.HUMAN, Occupation.ADVENTURER), 10);
             t.setAutoUpgrade(true);
             t.addResource(Resource.CP, 1000);
+            // addState(new State(0, this, StateType.KINGDOM, "Kingdom"), new Coordinate(23, 9));
           }
         }
       }
@@ -238,7 +240,7 @@ public class TileManager
     // Assume 'c' is null here as well
     if (s == null)
     {
-      s = new State(null, rand.nextInt(), this);
+      s = new State((long)rand.nextInt() << 32 | rand.nextInt(), this, StateType.KINGDOM);
       c = new Coordinate(rand.nextInt(width), rand.nextInt(height));
       while (getState(c) != null)
       {
@@ -272,6 +274,7 @@ public class TileManager
     }
     return null;
   }
+
   // Add a given tile to State 's' by grabbing the coordinate
   public Boolean consumeTile(State s, Coordinate c)
   {
@@ -511,6 +514,9 @@ public class TileManager
     }
   }
 
+  // Add a path to the coordinate map. Essentially update all of the
+  //  coordinates that this new path touches. Currently used to print
+  //  a path map. 
   public Boolean addPath(Path p)
   {
     if (p == null)
@@ -551,6 +557,8 @@ public class TileManager
     return true;
   }
 
+  // Helper function that updates a temp Coordinate's x and y values
+  //  based on the Direction object we're given.
   private void takeStep(Direction d, Coordinate coord, Boolean reverse)
   {
     switch (d)
@@ -589,6 +597,8 @@ public class TileManager
     return;
   }
 
+  // Find the shortest path between 'start' and 'end', and return
+  //  the Path instance.
   private Path findShortestPath(Coordinate start, Coordinate end)
   {
     if (start == null || end == null)
@@ -829,7 +839,7 @@ public class TileManager
     manager.getTile(neighbor_E).printTile();
     // manager.getTile(neighbor_E).printNeighbors();
 
-    State s = new State(null, 1, manager);
+    State s = new State(1, manager, StateType.KINGDOM);
     manager.consumeTile(s, center);
     manager.printStateCoordinates(s);
     Order move_100_wheat = new Order(s, 1, center, neighbor_E, Resource.WHEAT, 100);

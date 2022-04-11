@@ -12,7 +12,7 @@ enum Occupation
   // Primary Products
   ARMORER, MASON, MILLER, WEAPONCRAFTER, WOODCRAFTER,
   // Services
-  CLERIC, PRIEST, MERCHANT, LAW_ENFORCEMENT,
+  CLERIC, PRIEST, MERCHANT, LAW_ENFORCEMENT, ADVENTURER,
   // Prestige
   NOBLE, POLITICIAN,
 }
@@ -145,6 +145,7 @@ public class OccupationManager
         put(Occupation.MASON, 1);
         put(Occupation.MILLER, 3);
         put(Occupation.WOODCRAFTER, 1);
+        put(Occupation.ADVENTURER, 1);
       }});
       put(Occupation.MINER, new Hashtable<Occupation, Integer>()
       {{
@@ -153,6 +154,7 @@ public class OccupationManager
         put(Occupation.MASON, 1);
         put(Occupation.MILLER, 3);
         put(Occupation.WOODCRAFTER, 1);
+        put(Occupation.ADVENTURER, 1);
       }});
       put(Occupation.FARMER, new Hashtable<Occupation, Integer>()
       {{
@@ -161,6 +163,7 @@ public class OccupationManager
         put(Occupation.MASON, 1);
         put(Occupation.MILLER, 3);
         put(Occupation.WOODCRAFTER, 1);
+        put(Occupation.ADVENTURER, 1);
       }});
       put(Occupation.MILLER, new Hashtable<Occupation, Integer>()
       {{
@@ -168,6 +171,7 @@ public class OccupationManager
         put(Occupation.ARMORER, 1);
         put(Occupation.MASON, 1);
         put(Occupation.WOODCRAFTER, 1);
+        put(Occupation.ADVENTURER, 1);
       }});
     }};
 

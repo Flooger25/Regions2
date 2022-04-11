@@ -17,14 +17,11 @@ enum Resource
 // [] [X] []
 //    [ ]
 //
-// ...or NW, NE, W, E, SW, SE
-//  []   []
-// [] [X] []
-//  []   []
-//
+// TODO - Add angular direction configuration
 enum Direction
 {
-  NW, NE, W, E, SW, SE, N, S
+  N, S, E, W,
+  NW, NE, SW, SE,
 }
 
 public class Tile
@@ -243,11 +240,6 @@ public class Tile
     resources.put(Resource.CP, 0);
   }
 
-  public Policy getPolicy()
-  {
-    return tile_policy;
-  }
-
   private TileType getTypeFromColor(Color color)
   {
     int r = color.getRed();
@@ -287,6 +279,16 @@ public class Tile
     System.out.println(toString());
     System.out.println(resources.toString());
     pop.printPopulation();
+  }
+
+  public TileType getTileType()
+  {
+    return type;
+  }
+
+  public Policy getPolicy()
+  {
+    return tile_policy;
   }
 
   public Color getColor()
@@ -418,6 +420,18 @@ public class Tile
   public void migrate(int pop)
   {
     pop_traveled += pop;
+  }
+
+  public void migrate(Population p)
+  {
+    if (p != null)
+    {
+      // TODO - Support dynamic resource and populations in Tiles
+      // i.e. allow resources and populations to exist in Tiles only
+      //  during a single cycle as if they're traveling to a destination
+      pop_traveled += p.getPopulation();
+      pop.absorbPopulation(p);
+    }
   }
 
   // As infrastructure increases, so does the average km/h
@@ -751,7 +765,7 @@ public class Tile
     }
     if (!o_manager.isValidConversion(new_o, old_o))
     {
-      System.out.println("ERROR - Invalid Occupation conversion : " + old_o + " => " + new_o);
+      // System.out.println("WARNING - Invalid Occupation conversion : " + old_o + " => " + new_o);
       return -1;
     }
     // Utilize Population function and just return its value
@@ -768,7 +782,7 @@ public class Tile
     }
     if (o_manager.occupation_conversion_policy.get(new_o) == null)
     {
-      System.out.println("ERROR - Invalid new_o in conversion policy for OccupationOrder.");
+      // System.out.println("WARNING - Invalid new_o in conversion policy for OccupationOrder.");
       return -1;
     }
     // Get options on valid old Occupations we can generate from
@@ -978,9 +992,9 @@ public class Tile
     // We cannot pay for maintenance, so we risk the infrastructure
     // decaying.
     cp = getResourceQuantity(Resource.CP);
+    Random rand = new Random();
     if (cp < 0)
     {
-      Random rand = new Random();
       // TODO - Change decay rate at some point
       if (rand.nextInt(5) < 1)
       {
@@ -988,6 +1002,56 @@ public class Tile
       }
       // Reset back to 0
       resources.put(Resource.CP, 0);
+    }
+
+    // To support world-wide migration + give Tiles more autonomy, we
+    //  select certain Occupations to go to a neighboring Tile to travel
+    //  and settle.
+    // First we do the adventurers since they're easy.
+    // TODO - Support other Occupations leaving.
+    Map<Creature, Integer> adventurers = pop.getCreatureList(Occupation.ADVENTURER);
+    // TODO - Make this more dynamic
+    int distance_to_travel = 10;
+    int max_iterations = 10;
+    // Iterate over all adventurer instances
+    for (Map.Entry<Creature, Integer> entry : adventurers.entrySet())
+    {
+      Tile tile_found = null;
+      // We have enough food to send someone out
+      if (getResourceQuantity(Resource.BREAD) > distance_to_travel)
+      {
+        Direction d = Direction.values()[ rand.nextInt(4) ];
+        while (tile_found == null)
+        {
+          // Travel in a random direction that leads to a Tile
+          while (neighbors.get(d) == null)
+          {
+            // TODO - Support angular directions
+            d = Direction.values()[ rand.nextInt(4) ];
+            max_iterations--;
+            if (max_iterations <= 0) break;
+          }
+          if (max_iterations <= 0) break;
+          // Make sure we don't end up in the SEA
+          if (neighbors.get(d).getTileType() == TileType.SEA)
+          {
+            max_iterations--;
+            if (max_iterations <= 0) break;
+            continue;
+          }
+          tile_found = neighbors.get(d);
+        }
+        if (tile_found != null)
+        {
+          // Figure out how many adventurers we can send based on food available
+          final int num_feedable = Math.min(getResourceQuantity(Resource.BREAD) / distance_to_travel, entry.getValue());
+          // Move these particular adventurers to the neighbor Tile
+          tile_found.migrate(pop.splitPopulation( new Hashtable<Creature, Integer>(){{ put(entry.getKey(), num_feedable); }} ));
+          extractResource(Resource.BREAD, num_feedable * distance_to_travel);
+          tile_found.addResource(Resource.BREAD, num_feedable * distance_to_travel);
+          System.out.println("INFO - Moved " + num_feedable + " from " + coord.toString() + " => " + tile_found.getCoordinate().toString());
+        }
+      }
     }
   }
 
