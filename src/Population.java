@@ -476,8 +476,6 @@ public class Population
           tax_collected += c.getWealth();
           removed.put(c, 0);
         }
-        // Evolve the Occupations
-        micro_evolve();
       }
     }
     // Remove creatures queued to be removed
@@ -486,6 +484,11 @@ public class Population
       creatures.remove(entry.getKey());
     }
     // System.out.println("tax_collected = " + tax_collected);
+    // Evolve the Occupations
+    if (!randomness_override)
+    {
+      micro_evolve();
+    }
 
     return tax_collected;
   }
@@ -527,7 +530,7 @@ public class Population
         {
           continue;
         }
-        System.out.println(occFrom.name() + " -> " + occTo.name() + " : " + num_changed);
+        // System.out.println(occFrom.name() + " -> " + occTo.name() + " : " + num_changed);
         Creature changed = new Creature(entry.getKey().getRace(), occTo);
         // Push the new Creature onto the map, and pull the old one.
         pushCreature(changed, num_changed);

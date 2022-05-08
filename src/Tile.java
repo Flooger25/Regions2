@@ -86,6 +86,51 @@ public class Tile
       }});
     }};
 
+  // Super table of the recipe/resource requirement to upgrade infrastructure
+  // NOTE: There are multiple recipes to upgrade infrastructure depending on resources
+  public static final Map<Integer, Map<Resource, Integer>>
+    infrastructure_recipe = new Hashtable<Integer, Map<Resource, Integer>>()
+    {{
+      put(1, new Hashtable<Resource, Integer>()
+      {{
+        put(Resource.CP, 100);
+        put(Resource.LUMBER, 100);
+      }});
+      put(2, new Hashtable<Resource, Integer>()
+      {{
+        put(Resource.CP, 1000);
+        put(Resource.LUMBER, 1000);
+        put(Resource.LOGS, 100);
+        put(Resource.FIBERS, 500);
+      }});
+      put(3, new Hashtable<Resource, Integer>()
+      {{
+        put(Resource.CP, 10000);
+        put(Resource.LUMBER, 5000);
+        put(Resource.LOGS, 1000);
+        put(Resource.FIBERS, 1000);
+        put(Resource.STONE, 100);
+      }});
+      put(4, new Hashtable<Resource, Integer>()
+      {{
+        put(Resource.CP, 50000);
+        put(Resource.LUMBER, 10000);
+        put(Resource.LOGS, 1000);
+        put(Resource.FIBERS, 10000);
+        put(Resource.STONE, 1000);
+      }});
+      put(5, new Hashtable<Resource, Integer>()
+      {{
+        put(Resource.CP, 50000);
+        put(Resource.LUMBER, 10000);
+        put(Resource.LOGS, 1000);
+        put(Resource.FIBERS, 10000);
+        put(Resource.STONE, 1000);
+        put(Resource.BRICK, 100);
+      }});
+      // TODO 6-10
+    }};
+
   // Super table of valid resource conversions
   // 1-N Resources with list of size N
   //
@@ -326,8 +371,9 @@ public class Tile
   {
     int num_available = getResourceQuantity(r);
     // This resource doesn't exist here, so return 0
-    if (num_available == 0)
+    if (num_available <= 0)
     {
+      resources.remove(r);
       return 0;
     }
     // We're extracting a quantity less than we have, so update the remaining
@@ -461,14 +507,53 @@ public class Tile
     return 60 / (base_rate * (1 + (0.6 - env_rate) + (0.3 * Math.log10(pop_traveled)) + (0.1 * ((float)infrastructure / max_infrastructure)) ));
   }
 
-  public int getCostOfUpgrade()
+  // Helper function that returns a map of the needed resources to upgrade infrastructure
+  //  by one level.
+  public Map<Resource, Integer> getNeededToUpgrade()
   {
-    if (infrastructure < max_infrastructure)
+    // No recipe found!
+    if (infrastructure_recipe.get(infrastructure + 1) == null || infrastructure == max_infrastructure)
     {
-      return (int)(100 * Math.pow(1.9, infrastructure + 1));
+      return null;
     }
-    System.out.println("WARNING : Cannot upgrade infrastructure beyond 10");
-    return -1;
+    Map<Resource, Integer> upgrade_recipe = infrastructure_recipe.get(infrastructure + 1);
+    Map<Resource, Integer> needed_resources = new HashMap<Resource, Integer>();
+    // Iterate through needed resources and collect info on how many we need to
+    // upgrade compared to what we actually have.
+    for (Map.Entry<Resource, Integer> entry : upgrade_recipe.entrySet())
+    {
+      Resource res_needed = entry.getKey();
+      int num_needed = entry.getValue();
+      if (getResourceQuantity(res_needed) < num_needed)
+      {
+        // Add the difference of what is required minus what we have
+        needed_resources.put(res_needed, num_needed - getResourceQuantity(res_needed));
+      }
+    }
+    return needed_resources;
+  }
+
+  public void upgradeInfrastructure()
+  {
+    // At the maximum
+    if (infrastructure == max_infrastructure)
+    {
+      return;
+    }
+    // We need more resources to upgrade
+    if (!getNeededToUpgrade().isEmpty())
+    {
+      return;
+    }
+    // If we got here, subtract the needed resources from our supply and increment
+    Map<Resource, Integer> upgrade_cost = infrastructure_recipe.get(infrastructure + 1);
+    for (Map.Entry<Resource, Integer> entry : upgrade_cost.entrySet())
+    {
+      Resource res_needed = entry.getKey();
+      int num_needed = entry.getValue();
+      extractResource(res_needed, num_needed);
+    }
+    infrastructure++;
   }
 
   public int getCostOfMaintenance()
@@ -977,31 +1062,31 @@ public class Tile
     // Second, update population and collect taxes
     int cp = pop.update(policy.getTaxRate(), infrastructure) + getResourceQuantity(Resource.CP);
 
-    // NOTE - We can only upgrade infrastructure at a max once per update
-    if (auto_upgrade && getCostOfUpgrade() <= cp && infrastructure < 11)
+    // NOTE - We can only upgrade infrastructure at max once per update
+    if (auto_upgrade)
     {
-      // Update money resource and increment infrastructure
-      resources.put(Resource.CP, cp - getCostOfUpgrade());
-      infrastructure++;
+      upgradeInfrastructure();
     }
+    // Pay for maintenance
     else
     {
-      // Pay for maintenance
-      resources.put(Resource.CP, cp - getCostOfMaintenance());
-    }
-    // We cannot pay for maintenance, so we risk the infrastructure
-    // decaying.
-    cp = getResourceQuantity(Resource.CP);
-    Random rand = new Random();
-    if (cp < 0)
-    {
-      // TODO - Change decay rate at some point
-      if (rand.nextInt(5) < 1)
+      // We cannot pay for maintenance, so we risk the infrastructure decaying.
+      if (getResourceQuantity(Resource.CP) < getCostOfMaintenance())
       {
-        infrastructure -= 1;
+        Random rand = new Random();
+        // TODO - Change decay rate at some point
+        if (rand.nextInt(5) < 1)
+        {
+          infrastructure -= 1;
+        }
+        // Reset back to 0
+        // resources.put(Resource.CP, 0);
       }
-      // Reset back to 0
-      resources.put(Resource.CP, 0);
+      else
+      {
+        // Pay for the maintenance
+        resources.put(Resource.CP, cp - getCostOfMaintenance());
+      }
     }
 
     // To support world-wide migration + give Tiles more autonomy, we
@@ -1020,6 +1105,7 @@ public class Tile
       // We have enough food to send someone out
       if (getResourceQuantity(Resource.BREAD) > distance_to_travel)
       {
+        Random rand = new Random();
         Direction d = Direction.values()[ rand.nextInt(4) ];
         while (tile_found == null)
         {
@@ -1070,7 +1156,7 @@ public class Tile
     Coordinate c = new Coordinate(1,1);
     Tile tile = new Tile(Tile.TileType.FOREST, c);
     System.out.println(tile.getTravelTime());
-    System.out.println(tile.getCostOfUpgrade());
+    // System.out.println(tile.getCostOfUpgrade());
     System.out.println(tile.getCostOfMaintenance());
     // tile.printTile();
 
@@ -1081,14 +1167,14 @@ public class Tile
     tile.update();
     ext_bal = tile.getResourceQuantity(Resource.CP);
     if (ext_bal == 810) passes++;
-    System.out.println("1 : " + ext_bal + " " + tile.getCostOfMaintenance() + " " + tile.getCostOfUpgrade());
+    System.out.println("1 : " + ext_bal + " " + tile.getCostOfMaintenance() + " ");
     // tile.printTile();
 
     tile.extractResource(Resource.CP, 400);
     tile.update();
     ext_bal = tile.getResourceQuantity(Resource.CP);
     if (ext_bal == 49) passes++;
-    System.out.println("2 : " + ext_bal + " " + tile.getCostOfMaintenance() + " " + tile.getCostOfUpgrade());
+    System.out.println("2 : " + ext_bal + " " + tile.getCostOfMaintenance() + " ");
     // tile.printTile();
 
     tile.addResource(Resource.CP, 1000);
@@ -1096,7 +1182,7 @@ public class Tile
     tile.update();
     ext_bal = tile.getResourceQuantity(Resource.CP);
     if (ext_bal == 905) passes++;
-    System.out.println("3 : " + ext_bal + " " + tile.getCostOfMaintenance() + " " + tile.getCostOfUpgrade() + "\n\n");
+    System.out.println("3 : " + ext_bal + " " + tile.getCostOfMaintenance() + " " + "\n\n");
     // tile.printTile();
 
     // Tile update with population
